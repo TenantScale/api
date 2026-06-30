@@ -13,6 +13,45 @@ interface DeliveryLogProps {
   onClose: () => void
   onSelectDelivery: (delivery: Delivery | null) => void
   onFetchDeliveries: (webhookId: string, page: number) => void
+  /** Placeholder callback for resending a failed delivery. Actual resend is a future feature. */
+  onResend?: (delivery: Delivery) => void
+}
+
+/** Color-coded latency bar showing relative speed. */
+function LatencyDisplay({ ms }: { ms: number | null }) {
+  if (ms == null) return <span className="text-xs text-gray-500">—</span>
+
+  let color: string
+  let bg: string
+  let widthPercent: number
+
+  if (ms < 200) {
+    color = 'text-green-400'
+    bg = 'bg-green-500'
+    widthPercent = Math.min((ms / 200) * 50, 50)
+  } else if (ms < 1000) {
+    color = 'text-yellow-300'
+    bg = 'bg-yellow-500'
+    widthPercent = 50 + Math.min(((ms - 200) / 800) * 30, 30)
+  } else {
+    color = 'text-red-400'
+    bg = 'bg-red-500'
+    widthPercent = Math.min(80 + ((ms - 1000) / 9000) * 20, 100)
+  }
+
+  const label = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-16 h-1.5 rounded-full bg-gray-700 overflow-hidden shrink-0">
+        <div
+          className={`h-full rounded-full ${bg} transition-all`}
+          style={{ width: `${Math.max(4, widthPercent)}%` }}
+        />
+      </div>
+      <span className={`text-xs font-mono ${color}`}>{label}</span>
+    </div>
+  )
 }
 
 export default function DeliveryLog({
@@ -25,6 +64,7 @@ export default function DeliveryLog({
   onClose,
   onSelectDelivery,
   onFetchDeliveries,
+  onResend,
 }: DeliveryLogProps) {
   if (!deliveryWebhook) return null
 
@@ -99,11 +139,7 @@ export default function DeliveryLog({
                 </div>
                 <div className="rounded-lg border border-indigo-500/10 bg-[#080b18]/60 p-3">
                   <span className="text-xs text-gray-500 block mb-1">Duration</span>
-                  <span className="text-sm text-gray-200">
-                    {selectedDelivery.duration_ms != null
-                      ? `${selectedDelivery.duration_ms}ms`
-                      : 'N/A'}
-                  </span>
+                  <LatencyDisplay ms={selectedDelivery.duration_ms} />
                 </div>
                 <div className="rounded-lg border border-indigo-500/10 bg-[#080b18]/60 p-3 col-span-2">
                   <span className="text-xs text-gray-500 block mb-1">Timestamp</span>
@@ -143,6 +179,22 @@ export default function DeliveryLog({
                   </pre>
                 </div>
               )}
+
+              {/* Resend button for failed deliveries */}
+              {selectedDelivery.status === 'failed' && onResend && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => onResend(selectedDelivery)}
+                    className="rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                    title="This will attempt to redeliver the webhook event. Actual resend is a future feature."
+                  >
+                    ↻ Resend Delivery
+                  </button>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Resend is a placeholder — actual retry logic will be implemented in a future release.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -173,10 +225,13 @@ export default function DeliveryLog({
                         Response
                       </th>
                       <th className="px-3 py-2 text-left font-medium text-gray-400 text-xs">
-                        Duration
+                        Latency
                       </th>
                       <th className="px-3 py-2 text-left font-medium text-gray-400 text-xs">
                         Time
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-400 text-xs">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -184,13 +239,18 @@ export default function DeliveryLog({
                     {deliveries.map((delivery) => (
                       <tr
                         key={delivery.id}
-                        onClick={() => onSelectDelivery(delivery)}
-                        className="border-b border-gray-800/50 transition-colors hover:bg-gray-900/30 cursor-pointer"
+                        className="border-b border-gray-800/50 transition-colors hover:bg-gray-900/30"
                       >
-                        <td className="px-3 py-2.5 text-xs text-gray-200 font-mono">
+                        <td
+                          onClick={() => onSelectDelivery(delivery)}
+                          className="px-3 py-2.5 text-xs text-gray-200 font-mono cursor-pointer"
+                        >
                           {delivery.event_type}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td
+                          onClick={() => onSelectDelivery(delivery)}
+                          className="px-3 py-2.5 cursor-pointer"
+                        >
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                               delivery.status === 'delivered'
@@ -210,16 +270,34 @@ export default function DeliveryLog({
                               : 'Failed'}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-gray-400">
+                        <td
+                          onClick={() => onSelectDelivery(delivery)}
+                          className="px-3 py-2.5 text-xs text-gray-400 cursor-pointer"
+                        >
                           {delivery.response_status ?? '—'}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-gray-400">
-                          {delivery.duration_ms != null
-                            ? `${delivery.duration_ms}ms`
-                            : '—'}
+                        <td
+                          onClick={() => onSelectDelivery(delivery)}
+                          className="px-3 py-2.5 cursor-pointer"
+                        >
+                          <LatencyDisplay ms={delivery.duration_ms} />
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-gray-500">
+                        <td
+                          onClick={() => onSelectDelivery(delivery)}
+                          className="px-3 py-2.5 text-xs text-gray-500 cursor-pointer"
+                        >
                           {formatDate(delivery.created_at)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {delivery.status === 'failed' && onResend && (
+                            <button
+                              onClick={() => onResend(delivery)}
+                              className="rounded px-2 py-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-900/30 transition-colors"
+                              title="Resend (future feature)"
+                            >
+                              Resend
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

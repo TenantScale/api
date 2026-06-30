@@ -53,6 +53,8 @@ import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { logger } from './lib/logger'
 import { createDdosGuard, createPlanRateLimiter } from './middleware/rate-limit'
+import { metricsMiddleware, metricsEndpoint } from './middleware/metrics'
+import { captureException } from './lib/error-tracking'
 
 const APP_VERSION = '0.1.0'
 
@@ -69,6 +71,8 @@ import { webhookRoutes } from './routes/webhooks'
 import { cronRoutes } from './routes/cron'
 import { stripeWebhookRoutes } from './routes/stripe-webhook'
 import { subscriptionRoutes } from './routes/subscriptions'
+import { statusRoutes } from './routes/status'
+import { analyticsRoutes } from './routes/analytics'
 
 const app = new Hono()
 
@@ -90,6 +94,9 @@ app.get('/health', async (c) => {
     db: dbOk ? 'connected' : 'unreachable',
   })
 })
+
+// ── Metrics endpoint (BEFORE global rate limiter so monitoring tools are never blocked) ──
+app.get('/metrics', metricsEndpoint)
 
 // ── Global middleware ──
 const corsOrigins = process.env.CORS_ORIGIN?.split(',').map(o => o.trim()).filter(Boolean) ?? DEFAULT_CORS_ORIGINS
@@ -139,6 +146,7 @@ app.route('/', stripeWebhookRoutes)
 // ── API v1 routes ──
 const v1 = app.basePath('/v1')
 v1.use('*', createPlanRateLimiter())
+v1.use('*', metricsMiddleware)
 v1.route('/', tenantRoutes)
 v1.route('/', auditRoutes)
 v1.route('/', adminRoutes)
@@ -149,12 +157,19 @@ v1.route('/', adminPortalRoutes)
 v1.route('/', webhookRoutes)
 v1.route('/', cronRoutes)
 v1.route('/', subscriptionRoutes)
+v1.route('/', statusRoutes)
+v1.route('/', analyticsRoutes)
 
 // ── 404 handler ──
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
 // ── Error handler ──
 app.onError((err, c) => {
+  captureException(err instanceof Error ? err : new Error(String(err)), {
+    method: c.req.method,
+    path: c.req.path,
+    requestId: c.get('requestId'),
+  })
   logger.error(err, 'Unhandled error')
   return c.json({ error: 'Internal server error' }, 500)
 })

@@ -13,6 +13,50 @@ interface WebhookListProps {
   onDeleteStart: (webhook: Webhook) => void
 }
 
+/** Get a color-coded badge for the success rate percentage. */
+function SuccessRateBadge({ rate }: { rate: number | null | undefined }) {
+  if (rate == null) {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-800 text-gray-500">
+        No data
+      </span>
+    )
+  }
+
+  const clamped = Math.min(100, Math.max(0, rate))
+  let bg: string
+  let text: string
+  let dot: string
+
+  if (clamped >= 90) {
+    bg = 'bg-green-900/40'
+    text = 'text-green-300'
+    dot = 'bg-green-500'
+  } else if (clamped >= 70) {
+    bg = 'bg-yellow-900/40'
+    text = 'text-yellow-300'
+    dot = 'bg-yellow-500'
+  } else {
+    bg = 'bg-red-900/40'
+    text = 'text-red-300'
+    dot = 'bg-red-500'
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${bg} ${text}`}>
+      <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${dot}`} />
+      {clamped.toFixed(0)}%
+    </span>
+  )
+}
+
+/** Format a duration_ms value into a human-readable string. */
+function formatDuration(ms: number | null | undefined): string {
+  if (ms == null) return '—'
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(2)}s`
+}
+
 export default function WebhookList({
   webhooks,
   canManage,
@@ -30,6 +74,8 @@ export default function WebhookList({
             <tr className="border-b border-gray-800 bg-gray-900/50">
               <th className="px-4 py-3 text-left font-medium text-gray-400">URL</th>
               <th className="px-4 py-3 text-left font-medium text-gray-400">Events</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-400">Success Rate</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-400">Last Delivery</th>
               <th className="px-4 py-3 text-left font-medium text-gray-400">Status</th>
               <th className="px-4 py-3 text-left font-medium text-gray-400">Created</th>
               <th className="px-4 py-3 text-right font-medium text-gray-400">Actions</th>
@@ -37,7 +83,7 @@ export default function WebhookList({
           </thead>
           <tbody>
             <tr>
-              <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+              <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
                 No webhooks configured. Create one to receive event notifications.
               </td>
             </tr>
@@ -54,6 +100,8 @@ export default function WebhookList({
           <tr className="border-b border-gray-800 bg-gray-900/50">
             <th className="px-4 py-3 text-left font-medium text-gray-400">URL</th>
             <th className="px-4 py-3 text-left font-medium text-gray-400">Events</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-400">Success Rate</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-400">Last Delivery</th>
             <th className="px-4 py-3 text-left font-medium text-gray-400">Status</th>
             <th className="px-4 py-3 text-left font-medium text-gray-400">Created</th>
             <th className="px-4 py-3 text-right font-medium text-gray-400">Actions</th>
@@ -95,6 +143,41 @@ export default function WebhookList({
                     </span>
                   )}
                 </div>
+              </td>
+              <td className="px-4 py-3">
+                <SuccessRateBadge rate={webhook.success_rate} />
+              </td>
+              <td className="px-4 py-3">
+                {webhook.last_delivery ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span
+                      className={`inline-flex items-center text-xs font-medium ${
+                        webhook.last_delivery.status === 'delivered'
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                          webhook.last_delivery.status === 'delivered'
+                            ? 'bg-green-500'
+                            : 'bg-red-500'
+                        }`}
+                      />
+                      {webhook.last_delivery.status === 'delivered' ? 'Delivered' : 'Failed'}
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      {formatDate(webhook.last_delivery.created_at)}
+                    </span>
+                    {webhook.last_delivery.duration_ms != null && (
+                      <span className="text-[10px] text-gray-500">
+                        {formatDuration(webhook.last_delivery.duration_ms)}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-500">No deliveries</span>
+                )}
               </td>
               <td className="px-4 py-3">
                 <label className="relative inline-flex items-center cursor-pointer">

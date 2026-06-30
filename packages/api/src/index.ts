@@ -5,6 +5,7 @@ import 'dotenv/config'
 import { serve } from '@hono/node-server'
 import pino from 'pino'
 import app from './app'
+import { initSentry } from './lib/error-tracking'
 
 const port = parseInt(process.env.PORT ?? '3001')
 
@@ -19,6 +20,13 @@ if (missing.length > 0) {
   console.error('[TenantScale] Set them in .env or the environment before starting.')
   process.exit(1)
 }
+
+// ── Initialise error tracking (Sentry) — optional, no crash if unconfigured ──
+initSentry().then(() => {
+  logger.info('Error tracking initialised')
+}).catch((err) => {
+  logger.warn({ err }, 'Error tracking setup skipped')
+})
 
 const server = serve({
   fetch: app.fetch,

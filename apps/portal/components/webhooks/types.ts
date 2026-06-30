@@ -21,6 +21,14 @@ export interface Webhook {
   secret: string | null
   created_at: string
   updated_at: string
+  /** Computed: success rate percentage (0-100) for recent deliveries, or null if no data */
+  success_rate?: number | null
+  /** Computed: info about the most recent delivery attempt */
+  last_delivery?: {
+    status: 'delivered' | 'failed'
+    created_at: string
+    duration_ms: number | null
+  } | null
 }
 
 export interface Delivery {
