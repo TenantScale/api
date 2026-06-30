@@ -118,6 +118,13 @@ portalRoutes.get('/portal/users', requirePortalSession, async (c) => {
   // in a local user_profiles table and joining via tenant_users.user_id.
   const { data: authUsers } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const userMap = new Map((authUsers?.users ?? []).map(u => [u.id, u.email ?? null]))
+
+  // Warn if the auth user fetch likely hit the page limit
+  const fetchedCount = authUsers?.users?.length ?? 0
+  if (fetchedCount >= 1000) {
+    c.header('X-Warning', 'Auth user list may be incomplete - consider using a user_profiles table for large deployments')
+  }
+
   const enriched = users.map(u => ({
     ...u,
     email: userMap.get(u.user_id) ?? null,

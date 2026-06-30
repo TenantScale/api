@@ -192,6 +192,13 @@ export function createAdminRouter(opts: AdminRouteOptions): Hono {
     // in a local user_profiles table and joining via tenant_users.user_id.
     const { data: authUsers } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
     const userMap = new Map((authUsers?.users ?? []).map(u => [u.id, u.email ?? 'unknown']))
+
+    // Warn if the auth user fetch likely hit the page limit
+    const fetchedCount = authUsers?.users?.length ?? 0
+    if (fetchedCount >= 1000) {
+      c.header('X-Warning', 'Auth user list may be incomplete - consider using a user_profiles table for large deployments')
+    }
+
     const enriched = users.map(u => ({ ...u, email: userMap.get(u.user_id) ?? 'unknown' }))
 
     return c.json({ users: enriched })
@@ -435,12 +442,12 @@ export function createAdminRouter(opts: AdminRouteOptions): Hono {
       // Generate a new key value
       const { rawKey, keyHash } = generateApiKey()
 
-      // Update the key record — preserve key_prefix, update hash and created_at
+      // Update the key record — preserve key_prefix and update hash only.
+      // Intentionally do NOT update created_at — rotation is not creation.
       const { data: updatedKey, error: updateError } = await supabase
         .from('api_keys')
         .update({
           key_hash: keyHash,
-          created_at: new Date().toISOString(),
         })
         .eq('id', keyId)
         .eq('tenant_id', tenantId)

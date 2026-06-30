@@ -7,13 +7,21 @@ import { supabase } from '../db/supabase'
 import { logger } from '../lib/logger'
 import { validateWebhookUrl } from './ssrf'
 
-const MAX_RETRIES = 3
-const RETRY_DELAYS = [1_000, 4_000, 15_000] // 1s, 4s, 15s
+const RETRY_CONFIG = Object.freeze({ retries: 3, delays: [1_000, 4_000, 15_000] })
 
-/** Exported for testability — override in tests: set __TEST_RETRIES.retries = 0 */
-export const __TEST_RETRIES = {
-  retries: 3,
-  delays: [1_000, 4_000, 15_000],
+/**
+ * Get effective retry config, checking for test overrides.
+ * Tests set process.env.__TEST_RETRIES to a JSON override of the shape
+ * `{ retries: number; delays: number[] }`.
+ */
+function getRetryConfig(): { retries: number; delays: number[] } {
+  // Dynamic check so tests can set the env var after import
+  if (process.env.NODE_ENV === 'test' && process.env.__TEST_RETRIES) {
+    try {
+      return JSON.parse(process.env.__TEST_RETRIES)
+    } catch { /* ignore invalid JSON */ }
+  }
+  return RETRY_CONFIG
 }
 
 export interface WebhookPayload {
@@ -148,9 +156,9 @@ async function sendWebhook(
     const errorMsg = err instanceof Error ? err.message : 'Unknown error'
 
     // Retry with exponential backoff
-    if (attempt < __TEST_RETRIES.retries) {
-      const delay = __TEST_RETRIES.delays[attempt - 1] ?? 5_000
-      logger.warn({ attempt, maxRetries: __TEST_RETRIES.retries, url: hook.url, error: errorMsg, delay }, `[Webhook] Delivery failed, retrying in ${delay}ms`)
+    if (attempt < getRetryConfig().retries) {
+      const delay = getRetryConfig().delays[attempt - 1] ?? 5_000
+      logger.warn({ attempt, maxRetries: getRetryConfig().retries, url: hook.url, error: errorMsg, delay }, `[Webhook] Delivery failed, retrying in ${delay}ms`)
       await new Promise(resolve => setTimeout(resolve, delay))
       return sendWebhook(hook, body, event, attempt + 1)
     }
@@ -164,10 +172,10 @@ async function sendWebhook(
       response_status: null,
       response_body: null,
       status: 'failed',
-      error_message: `${errorMsg} (after ${__TEST_RETRIES.retries} attempts)`,
+      error_message: `${errorMsg} (after ${getRetryConfig().retries} attempts)`,
       duration_ms: duration,
     })
 
-    logger.error({ url: hook.url, error: errorMsg, maxRetries: __TEST_RETRIES.retries }, `[Webhook] Delivery failed after ${__TEST_RETRIES.retries} attempts`)
+    logger.error({ url: hook.url, error: errorMsg, maxRetries: getRetryConfig().retries }, `[Webhook] Delivery failed after ${getRetryConfig().retries} attempts`)
   }
 }

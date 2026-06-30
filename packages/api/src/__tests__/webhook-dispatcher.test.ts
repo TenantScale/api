@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { dispatchWebhook, __TEST_RETRIES } from '../lib/webhook-dispatcher'
+import { dispatchWebhook } from '../lib/webhook-dispatcher'
 
 // ── Mock Supabase ──
 const { mockSupabase } = vi.hoisted(() => ({
@@ -210,7 +210,7 @@ describe('Webhook Dispatcher', () => {
   // ── Test 6: Failed delivery (fetch throws) ──
   it('logs a failed delivery when fetch throws an error', async () => {
     // Disable retries to prevent timer leakage between tests
-    __TEST_RETRIES.retries = 0
+    process.env.__TEST_RETRIES = JSON.stringify({ retries: 0 })
 
     webhookQB.contains.mockResolvedValue({
       data: [

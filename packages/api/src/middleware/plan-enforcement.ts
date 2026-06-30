@@ -41,8 +41,8 @@ function getTenantId(c: Context): string | undefined {
   const apiKey: ApiKeyContext | undefined = c.get('apiKey')
   if (apiKey?.tenant_id) return apiKey.tenant_id
 
-  // Check portal session
-  const session = c.get('session') as { tenant_id?: string } | undefined
+  // Check portal session (stored as 'portalSession' by session-auth middleware)
+  const session = c.get('portalSession') as { tenant_id?: string } | undefined
   if (session?.tenant_id) return session.tenant_id
 
   return undefined

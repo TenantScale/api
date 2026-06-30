@@ -3,7 +3,6 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import { getSdk } from '../lib/sdk'
 import type { ApiKeyContext } from '../env'
 
 /**
@@ -51,17 +50,15 @@ export function requireScope(...scopes: string[]) {
   return async (c: Context, next: Next) => {
     const apiKey: ApiKeyContext = c.get('apiKey')
 
-    try {
-      // Convert to SDK's ApiKeyInfo shape for requireScope
-      getSdk().requireScope(
-        { ...apiKey, key_record_id: '', raw: '' },
-        ...scopes,
-      )
-      await next()
-    } catch {
+    // Inline scope check — avoids creating a fake ApiKeyInfo object
+    // and doesn't depend on SDK internals.
+    const hasScope = scopes.some(s => apiKey.scopes.includes(s))
+    if (!hasScope) {
       return c.json({
         error: `This endpoint requires one of these scopes: ${scopes.join(', ')}`,
       }, 403)
     }
+
+    await next()
   }
 }

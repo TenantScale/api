@@ -18,6 +18,28 @@ import { createHash } from 'node:crypto'
 import { supabase } from '../db/supabase'
 import { logger } from '../lib/logger'
 
+// ── Interval registry ──
+// Tracks all created cleanup intervals so they can be cleared on demand
+// (e.g. during testing or module hot-reload).
+const _cleanupIntervals: ReturnType<typeof setInterval>[] = []
+
+function _registerInterval(interval: ReturnType<typeof setInterval>): void {
+  _cleanupIntervals.push(interval)
+}
+
+/**
+ * Clear all tracked cleanup intervals and reset shared stores.
+ * Useful in tests and to prevent interval pile-up on module hot-reload.
+ */
+export function resetAllIntervals(): void {
+  for (const interval of _cleanupIntervals) {
+    clearInterval(interval)
+  }
+  _cleanupIntervals.length = 0
+  keyCache.clear()
+  ipCreationStore.clear()
+}
+
 // ── Caches ──
 
 /** Cache for API key → tenant_id + plan lookup (5 min TTL) */
@@ -67,6 +89,7 @@ export function createDdosGuard(options: DdosGuardOptions) {
     }
   }, 60_000)
   if (cleanupInterval.unref) cleanupInterval.unref()
+  _registerInterval(cleanupInterval)
 
   const middlewareFn = async (c: Context, next: Next) => {
     const key = c.req.header('x-forwarded-for')
@@ -128,6 +151,7 @@ export function createPlanRateLimiter() {
     }
   }, 300_000)
   if (cleanupInterval.unref) cleanupInterval.unref()
+  _registerInterval(cleanupInterval)
 
   const middlewareFn = async (c: Context, next: Next) => {
     // ── 1. Extract tenant_id ──
@@ -316,6 +340,7 @@ const creationCleanupInterval = setInterval(() => {
   }
 }, CREATION_CLEANUP_MS)
 if (creationCleanupInterval.unref) creationCleanupInterval.unref()
+_registerInterval(creationCleanupInterval)
 
 /**
  * Check if an IP has exceeded the per-IP creation rate limit.

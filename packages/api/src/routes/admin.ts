@@ -11,6 +11,7 @@ import { createAdminRouter } from '../lib/shared-admin'
 import type { AdminActor } from '../lib/shared-admin'
 import { requireApiKey, requireScope } from '../middleware/auth'
 import type { ApiKeyContext } from '../env'
+import { createDdosGuard } from '../middleware/rate-limit'
 
 export const adminRoutes = new Hono()
 
@@ -42,7 +43,9 @@ adminRoutes.route('/', sharedRouter)
 
 // ── Redeem impersonation token ──
 // No auth — token itself is the credential
-adminRoutes.post('/auth/impersonate', async (c) => {
+// IP-based rate limiting prevents brute-force attacks against the token
+const impersonateGuard = createDdosGuard({ maxRequests: 10, windowMs: 60_000 })
+adminRoutes.post('/auth/impersonate', impersonateGuard, async (c) => {
   const { token } = await c.req.json<{ token: string }>()
 
   if (!token) {

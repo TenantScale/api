@@ -83,6 +83,10 @@ stripeWebhookRoutes.post('/stripe/webhook', async (c) => {
     logger.error({ err, eventType: event.type, eventId: event.id }, '[Stripe] Webhook handler error')
     // Return 200 to Stripe even on error to prevent retry storms.
     // The error is logged and will be investigated manually.
+    // Stripe will NOT retry, avoiding duplicate subscription/tenant
+    // operations from replay. This is intentional — the handler must
+    // be idempotent on replay, but returning non-2xx would re-deliver
+    // the event before we've investigated the root cause.
     return c.json({ received: true, warning: 'Handler error — logged' })
   }
 })
