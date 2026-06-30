@@ -1,0 +1,17 @@
+{
+  "name": "tenantscale-cloud",
+  "private": true,
+  "scripts": {
+    "dev:portal": "pnpm --filter @tenantscale/portal dev",
+    "dev:admin": "pnpm --filter @tenantscale/admin dev",
+    "build:portal": "pnpm --filter @tenantscale/portal build",
+    "build:admin": "pnpm --filter @tenantscale/admin build",
+    "lint": "turbo lint",
+    "test:e2e:portal": "pnpm --filter @tenantscale/portal test:e2e",
+    "test:e2e:admin": "pnpm --filter @tenantscale/admin test:e2e"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

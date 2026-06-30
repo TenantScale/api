@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npx esbuild api/index.ts --bundle --platform=node --outfile=api/bundle.js --format=esm --external:@supabase/supabase-js --external:hono --external:@hono/zod-validator --external:zod",
+  "installCommand": "pnpm install --filter @tenantscale/api",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/bundle" }
+  ]
+}

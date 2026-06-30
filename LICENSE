@@ -1,0 +1,8 @@
+This repository contains multiple packages with different licenses:
+
+- `packages/api/`   — BSL 1.1 (source available)
+- `packages/mcp/`   — MIT
+- `apps/portal/`    — Proprietary
+- `apps/admin/`     — Proprietary (deprecated)
+
+See each package's LICENSE file for details.
