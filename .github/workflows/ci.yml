@@ -32,6 +32,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true
+
       - name: Build
         run: pnpm build
 
@@ -39,5 +43,5 @@ jobs:
         run: pnpm test
 
       - name: Coverage
-        run: pnpm test -- --coverage
+        run: cd packages/api && pnpm exec vitest run --coverage
         continue-on-error: true

@@ -199,7 +199,7 @@ async function handleCheckoutCompleted(session: StripeCheckoutSession) {
       stripe_subscription_id: session.subscription,
       stripe_customer_id: session.customer,
       stripe_price_id: priceId,
-      // @ts-ignore
+      // @ts-expect-error - Stripe subscription type is incomplete, metadata/status exist at runtime
       status: mapSubscriptionStatus(subscription.status),
       plan_id: planInfo.planId,
       billing_interval: billingInterval,
