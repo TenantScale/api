@@ -73,7 +73,7 @@ subscriptionRoutes.post(
       const checkoutSession = await createCheckoutSession({
         tenantId: session.tenant_id,
         customerEmail: session.email,
-        tenantName: session.tenant_name,
+        tenantName: session.tenant_name ?? undefined,
         priceId,
         billingInterval: body.billing_interval,
         successUrl,

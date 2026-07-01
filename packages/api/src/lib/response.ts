@@ -42,5 +42,5 @@ export function supabaseError(
   defaultCode = 'DB_ERROR',
 ): Response | Promise<Response> {
   const status = error?.code ? POSTGRES_ERROR_CODES[error.code] ?? 500 : 500
-  return c.json({ error: error?.message ?? 'Unknown error', code: error?.code ?? defaultCode }, status)
+  return c.json({ error: error?.message ?? 'Unknown error', code: error?.code ?? defaultCode }, status as any)
 }

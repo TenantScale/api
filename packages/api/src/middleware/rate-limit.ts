@@ -204,7 +204,7 @@ export function createPlanRateLimiter() {
             planId = tenant.plan_id
 
             keyCache.set(keyHash, {
-              tenant_id: tenantId,
+              tenant_id: tenantId!,
               plan_id: planId ?? 'free',
               fetchedAt: Date.now(),
             })

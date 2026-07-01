@@ -2,12 +2,11 @@
 // TenantScale SDK — singleton for the Hono API
 // ──────────────────────────────────────────────────────
 //
-// Lazily initialized once with the existing Supabase admin client.
+// Lazily initialized once with supabase URL and key.
 // All middleware and lib files import this instead of creating
 // their own SDK instances.
 
 import { TenantScale } from '@tenantscale/sdk'
-import { supabase } from '../db/supabase'
 
 let _ts: TenantScale | null = null
 
@@ -17,6 +16,9 @@ let _ts: TenantScale | null = null
  */
 export function getSdk(): TenantScale {
   if (_ts) return _ts
-  _ts = new TenantScale({ supabase })
+  _ts = new TenantScale({
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  } as any)
   return _ts
 }

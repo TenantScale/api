@@ -29,7 +29,7 @@ function getSupabase(): SupabaseClient {
       schema: 'public',
     },
     global: {
-      fetch: (url: RequestInfo | URL, init?: RequestInit) =>
+      fetch: (url: string | Request | URL, init?: RequestInit) =>
         fetch(url, { ...init, signal: AbortSignal.timeout(10_000) }),
     },
   })

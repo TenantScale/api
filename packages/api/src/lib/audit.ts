@@ -1,10 +1,24 @@
 // ──────────────────────────────────────────────────────
-// Audit logging — delegates to @tenantscale/sdk
+// Audit logging — inlined from @tenantscale/sdk
 // ──────────────────────────────────────────────────────
 
-import type { AuditEventInput } from '@tenantscale/sdk'
-import { getSdk } from './sdk'
 import type { Context } from 'hono'
+import { supabase } from '../db/supabase'
+
+/** Audit event input shape */
+export interface AuditEventInput {
+  tenant_id: string
+  actor_id?: string | null
+  actor_type: 'user' | 'system' | 'admin_api' | 'admin_impersonation'
+  action: string
+  resource: string
+  details?: Record<string, unknown>
+  ip?: string | null
+  user_agent?: string | null
+}
+
+/** Re-export from this file only */
+export type { AuditEventInput as AuditEventInputType }
 
 /**
  * Extract client IP from a Hono request context.
@@ -25,8 +39,17 @@ export function getClientIp(c: Context): string {
  * Fire-and-forget — never blocks the response.
  */
 export async function logAuditEvent(input: AuditEventInput): Promise<void> {
-  return getSdk().logAuditEvent(input)
+  const { error } = await supabase.from('audit_events').insert({
+    tenant_id: input.tenant_id,
+    actor_id: input.actor_id ?? null,
+    actor_type: input.actor_type,
+    action: input.action,
+    resource: input.resource,
+    details: input.details ?? {},
+    ip: input.ip ?? null,
+    user_agent: input.user_agent ?? null,
+  })
+  if (error) {
+    console.error('[Audit] Failed to log audit event:', error)
+  }
 }
-
-// Re-export type for convenience
-export type { AuditEventInput }

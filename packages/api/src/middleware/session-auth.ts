@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────────────
-// Session auth middleware — validates portal sessions via @tenantscale/sdk
+// Session auth middleware — validates portal sessions via Supabase
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import { getSdk } from '../lib/sdk'
+import { supabase } from '../db/supabase'
 
 // ── Portal session type stored in Hono context ──
 
@@ -24,7 +24,7 @@ export interface PortalSession {
  * Hono middleware that validates a portal session JWT.
  *
  * Reads Authorization: Bearer <token>, validates the session
- * via the SDK, and attaches the resolved portal session to context.
+ * via Supabase Auth, and attaches the resolved portal session to context.
  */
 export async function requirePortalSession(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization')
@@ -39,18 +39,47 @@ export async function requirePortalSession(c: Context, next: Next) {
   }
 
   try {
-    const sdk = getSdk()
-    const session = await sdk.validateSession(jwt)
+    // Validate the JWT via Supabase Auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
+
+    if (authError || !user) {
+      return c.json({ error: 'Invalid or expired session' }, 401)
+    }
+
+    const userId = user.id
+    const email = user.email ?? ''
+
+    // Check if user is a platform admin (super admin)
+    const { data: platformAdmin } = await supabase
+      .from('platform_admins')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const isSuperAdmin = !!platformAdmin
+
+    // Resolve tenant membership
+    const { data: membership } = await supabase
+      .from('tenant_users')
+      .select('id, role, tenant:tenants(id, name, slug)')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const membershipData = membership as unknown as {
+      id: string
+      role: string
+      tenant: { id: string; name: string; slug: string }
+    } | null
 
     c.set('portalSession', {
-      user_id: session.user_id,
-      email: session.email,
-      tenant_id: session.tenant_id,
-      tenant_slug: session.tenant_slug,
-      tenant_name: session.tenant_name,
-      role: session.role,
-      membership_id: session.membership_id,
-      is_super_admin: session.is_super_admin,
+      user_id: userId,
+      email,
+      tenant_id: membershipData?.tenant?.id ?? null,
+      tenant_slug: membershipData?.tenant?.slug ?? null,
+      tenant_name: membershipData?.tenant?.name ?? null,
+      role: membershipData?.role ?? null,
+      membership_id: membershipData?.id ?? null,
+      is_super_admin: isSuperAdmin,
     } satisfies PortalSession)
 
     await next()

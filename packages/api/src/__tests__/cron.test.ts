@@ -49,7 +49,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
       method: 'POST',
     })
     expect(res.status).toBe(401)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Invalid cron secret')
   })
 
@@ -68,7 +68,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
       headers: { 'X-Cron-Secret': 'test-cron-secret-123' },
     })
     expect(res.status).toBe(503)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Cron not configured on server')
     process.env.CRON_SECRET = 'test-cron-secret-123'
   })
@@ -87,7 +87,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.success).toBe(true)
     expect(body.total_deleted).toBe(64)
     expect(body.per_plan).toHaveLength(3)
@@ -104,7 +104,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.success).toBe(true)
     expect(body.total_deleted).toBe(0)
     expect(body.per_plan).toEqual([])
@@ -122,7 +122,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
     })
 
     expect(res.status).toBe(500)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Audit cleanup failed')
   })
 
@@ -135,7 +135,7 @@ describe('POST /admin/cron/cleanup-audit', () => {
     })
 
     expect(res.status).toBe(500)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Audit cleanup threw unexpected error')
   })
 })
@@ -172,7 +172,7 @@ describe('GET /admin/cron/status', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.dry_run).toBe(true)
     expect(body.per_plan).toEqual([])
     expect(body.total_expired).toBe(0)
@@ -194,7 +194,7 @@ describe('GET /admin/cron/status', () => {
     })
 
     expect(res.status).toBe(500)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Failed to fetch plans')
   })
 })

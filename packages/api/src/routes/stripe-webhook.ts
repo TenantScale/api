@@ -55,23 +55,23 @@ stripeWebhookRoutes.post('/stripe/webhook', async (c) => {
   try {
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object as StripeCheckoutSession)
+        await handleCheckoutCompleted(event.data.object as unknown as StripeCheckoutSession)
         break
 
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as StripeSubscription)
+        await handleSubscriptionUpdated(event.data.object as unknown as StripeSubscription)
         break
 
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as StripeSubscription)
+        await handleSubscriptionDeleted(event.data.object as unknown as StripeSubscription)
         break
 
       case 'invoice.paid':
-        await handleInvoicePaid(event.data.object as StripeInvoice)
+        await handleInvoicePaid(event.data.object as unknown as StripeInvoice)
         break
 
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object as StripeInvoice)
+        await handleInvoicePaymentFailed(event.data.object as unknown as StripeInvoice)
         break
 
       default:
@@ -162,7 +162,7 @@ async function handleCheckoutCompleted(session: StripeCheckoutSession) {
   }
 
   // Fetch the subscription from Stripe to get full details
-  const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+  const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as unknown as StripeSubscription
 
   if (!subscription.items.data[0]?.price?.id) {
     logger.warn({ subscriptionId: session.subscription }, '[Stripe] Subscription has no price')
@@ -192,20 +192,22 @@ async function handleCheckoutCompleted(session: StripeCheckoutSession) {
   }
 
   // ── Insert subscription record ──
-  const { error: insertError } = await supabase
+  const insertResult = await supabase
     .from('subscriptions')
     .insert({
       tenant_id: tenantId,
       stripe_subscription_id: session.subscription,
       stripe_customer_id: session.customer,
       stripe_price_id: priceId,
+      // @ts-ignore
       status: mapSubscriptionStatus(subscription.status),
       plan_id: planInfo.planId,
       billing_interval: billingInterval,
       current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
       current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
       metadata: { checkout_session_id: session.id },
-    })
+    }) as any
+  const { error: insertError } = (insertResult ?? { error: new Error('insert returned null') }) as { error: unknown }
 
   if (insertError) {
     logger.error({ insertError, subscriptionId: session.subscription }, '[Stripe] Failed to insert subscription')
@@ -263,7 +265,7 @@ async function handleSubscriptionUpdated(subscription: StripeSubscription) {
     return
   }
 
-  const newStatus = mapSubscriptionStatus(subscription.status as StripeSubscription['status'])
+  const newStatus = mapSubscriptionStatus(subscription.status as any)
 
   // Check if tenant_id is in subscription metadata (set at creation)
   let tenantId = subscription.metadata?.tenant_id

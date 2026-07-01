@@ -208,7 +208,7 @@ describe('POST /stripe/webhook', () => {
       body: JSON.stringify({ type: 'checkout.session.completed' }),
     })
     expect(res.status).toBe(401)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.error).toBe('Missing signature')
   })
 
@@ -236,7 +236,7 @@ describe('POST /stripe/webhook', () => {
       body: JSON.stringify({ type: 'charge.succeeded' }),
     })
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.received).toBe(true)
     expect(body.event_id).toBe('evt_mock')
   })
@@ -296,7 +296,7 @@ describe('Stripe webhook event handlers', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await res.json() as any
     expect(body.received).toBe(true)
   })
 })

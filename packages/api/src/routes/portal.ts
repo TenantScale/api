@@ -195,7 +195,7 @@ portalRoutes.post('/portal/users/invite', requirePortalSession, requirePortalRol
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'user.invited',
@@ -226,7 +226,7 @@ portalRoutes.delete('/portal/users/:id', requirePortalSession, requirePortalRole
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'user.removed',
@@ -263,7 +263,7 @@ portalRoutes.patch('/portal/users/:id/role', requirePortalSession, requirePortal
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'user.role_changed',
@@ -326,7 +326,7 @@ portalRoutes.post('/portal/api-keys', requirePortalSession, requirePortalRole('o
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'api_key.created',
@@ -359,7 +359,7 @@ portalRoutes.delete('/portal/api-keys/:id', requirePortalSession, requirePortalR
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'api_key.revoked',
@@ -423,7 +423,7 @@ portalRoutes.patch('/portal/settings', requirePortalSession, requirePortalRole('
   if (error) return supabaseError(c, error)
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'tenant.settings_updated',
@@ -466,7 +466,7 @@ portalRoutes.post('/portal/transfer-ownership', requirePortalSession, requirePor
   }
 
   await logAuditEvent({
-    tenant_id: session.tenant_id,
+    tenant_id: session.tenant_id!,
     actor_id: session.user_id,
     actor_type: 'user',
     action: 'tenant.ownership_transferred',

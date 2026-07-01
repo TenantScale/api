@@ -47,7 +47,7 @@ describe('requirePortalSession', () => {
   it('returns 401 when no Authorization header', async () => {
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test')
     expect(res.status).toBe(401)
@@ -58,7 +58,7 @@ describe('requirePortalSession', () => {
   it('returns 401 when Authorization is not Bearer', async () => {
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test', {
       headers: { Authorization: 'Basic dGVzdDp0ZXN0' },
@@ -76,7 +76,7 @@ describe('requirePortalSession', () => {
 
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test', {
       headers: { Authorization: 'Bearer invalid-jwt' },
@@ -94,7 +94,7 @@ describe('requirePortalSession', () => {
 
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test', {
       headers: { Authorization: 'Bearer expired-jwt' },
@@ -127,7 +127,7 @@ describe('requirePortalSession', () => {
 
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test', {
       headers: { Authorization: 'Bearer valid-jwt' },
@@ -165,7 +165,7 @@ describe('requirePortalSession', () => {
 
     const app = new Hono()
     app.use('*', requirePortalSession)
-    app.get('/test', (c) => c.json(c.var.portalSession))
+    app.get('/test', (c) => c.json((c.var as any).portalSession))
 
     const res = await app.request('/test', {
       headers: { Authorization: 'Bearer admin-jwt' },

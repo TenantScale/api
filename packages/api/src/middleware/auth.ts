@@ -1,9 +1,11 @@
 // ──────────────────────────────────────────────────────
-// Auth middleware — validates API keys via @tenantscale/sdk
+// Auth middleware — validates API keys against Supabase
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
 import type { ApiKeyContext } from '../env'
+import { supabase } from '../db/supabase'
+import { hashApiKey } from '../lib/api-key'
 
 /**
  * Hono middleware that validates Authorization: Bearer <token>
@@ -22,14 +24,37 @@ export async function requireApiKey(c: Context, next: Next) {
   }
 
   try {
-    const sdk = getSdk()
-    const keyInfo = await sdk.validateApiKey(rawKey)
+    const keyHash = hashApiKey(rawKey)
+
+    const { data: keyRecord, error } = await supabase
+      .from('api_keys')
+      .select('id, tenant_id, scopes, created_by, is_active, expires_at, tenant:tenants!inner(is_active)')
+      .eq('key_hash', keyHash)
+      .maybeSingle()
+
+    if (error || !keyRecord) {
+      return c.json({ error: 'Invalid API key' }, 401)
+    }
+
+    if (!keyRecord.is_active) {
+      return c.json({ error: 'API key is disabled' }, 403)
+    }
+
+    if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
+      return c.json({ error: 'API key has expired' }, 403)
+    }
+
+    // Check tenant is active
+    const tenant = keyRecord.tenant as unknown as { is_active: boolean }
+    if (!tenant?.is_active) {
+      return c.json({ error: 'Tenant account is inactive' }, 403)
+    }
 
     c.set('apiKey', {
-      raw: keyInfo.raw,
-      tenant_id: keyInfo.tenant_id,
-      scopes: keyInfo.scopes,
-      created_by: keyInfo.created_by,
+      raw: rawKey.slice(0, 8) + '...',
+      tenant_id: keyRecord.tenant_id,
+      scopes: keyRecord.scopes,
+      created_by: keyRecord.created_by,
     } satisfies ApiKeyContext)
 
     await next()
