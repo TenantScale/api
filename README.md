@@ -4,19 +4,12 @@
 
 This is the Hono-based API server that provides the management plane for TenantScale. It works alongside the open-source [SDK](https://github.com/TenantScale/sdk) to give you a full multi-tenant platform.
 
-| Package | License | Description |
-|---------|---------|-------------|
-| [`packages/api`](packages/api) | **BSL 1.1** | Core API server — tenant CRUD, portal sessions, admin, billing, webhooks, analytics, metrics |
-| [`packages/mcp`](packages/mcp) | **MIT** | MCP server for Claude & Cursor — lets AI tools inspect tenant data |
+## 🔑 License
 
----
-
-## 🔑 Licensing
-
-- **`packages/api/`** — [BSL 1.1](LICENSE) (source available). Free to self-host in production as long as you don't compete with TenantScale's hosted service. Converts to Apache 2.0 on 2029-01-01.
-- **`packages/mcp/`** — MIT (fully open).
+**BSL 1.1** — source available. Free to self-host in production as long as you don't compete with TenantScale's hosted service. Converts to Apache 2.0 on 2029-01-01.
 
 > 💡 **The SDK** ([`@tenantscale/sdk`](https://github.com/TenantScale/sdk)) is MIT and has no restrictions whatsoever.
+> 💡 **The MCP server** ([`@tenantscale/mcp`](https://github.com/TenantScale/sdk/tree/main/packages/mcp)) is also MIT and lives in the SDK repo.
 
 ## 🚀 Quick Start
 
@@ -110,13 +103,6 @@ The API starts at **http://localhost:3001**.
                └──────────────────────┘
 ```
 
-## 📦 Packages
-
-| Package | Description |
-|---------|-------------|
-| [`packages/api`](packages/api) | Core Hono API server + all route handlers, middleware, and lib modules |
-| [`packages/mcp`](packages/mcp) | MCP server exposing tenant data to Claude Desktop and Cursor |
-
 ## 🔧 Environment
 
 Copy `.env.example` to `.env` with your Supabase credentials:
@@ -134,7 +120,13 @@ SENTRY_DSN=                     # Error tracking
 CRON_SECRET=                    # Alert check endpoint auth
 ```
 
+## 📚 Related Repos
+
+| Repo | License | Description |
+|------|---------|-------------|
+| [TenantScale/sdk](https://github.com/TenantScale/sdk) | **MIT** | Core SDK, framework adapters, CLI, React hooks, MCP server |
+| [TenantScale/portal](https://github.com/TenantScale/portal) | **Proprietary** | Customer-facing Next.js portal (dashboard, API keys, audit, billing) |
+
 ## 📄 License
 
-- `packages/api/` — [BSL 1.1](LICENSE) (source available, free to self-host)
-- `packages/mcp/` — MIT
+BSL 1.1 — see [LICENSE](LICENSE).
