@@ -103,6 +103,7 @@ async function main() {
     const monthlyPrice = await createOrUpdatePrice(product.id, {
       nickname: `${config.name} Monthly`,
       unit_amount: config.monthlyPrice,
+      currency: 'usd',
       recurring: { interval: 'month' as const },
       metadata: { plan_id: planId, interval: 'month' },
     })
@@ -113,6 +114,7 @@ async function main() {
     const yearlyPrice = await createOrUpdatePrice(product.id, {
       nickname: `${config.name} Yearly`,
       unit_amount: config.yearlyPrice,
+      currency: 'usd',
       recurring: { interval: 'year' as const },
       metadata: { plan_id: planId, interval: 'year' },
     })
