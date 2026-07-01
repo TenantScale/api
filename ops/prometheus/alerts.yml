@@ -1,0 +1,225 @@
+# ──────────────────────────────────────────────────────
+# TenantScale — Prometheus Alerting Rules
+# ──────────────────────────────────────────────────────
+# Compatible with Prometheus 2.x+
+# Load this file as an additional_alerting_rules in your
+# Prometheus config, or add it to a mixin / operator rule.
+#
+# Groups:
+#   tenantscale-platform   — platform health (latency, errors, availability)
+#   tenantscale-business   — business-level signals (tenants, billing, usage)
+#   tenantscale-security   — security-relevant anomalies
+# ──────────────────────────────────────────────────────
+
+groups:
+
+  # ════════════════════════════════════════════════════════════════
+  # Platform Health
+  # ════════════════════════════════════════════════════════════════
+
+  - name: tenantscale-platform
+    interval: 1m
+    rules:
+
+      # ── High Error Rate ──
+      - alert: TenantScaleHighErrorRate
+        expr: |
+          rate(tenantscale_requests_total{status=~"5.."}[5m])
+          /
+          rate(tenantscale_requests_total[5m])
+          > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "API error rate exceeds 5% ({{ $value | humanizePercentage }})"
+          description: >
+            The API error rate over the last 5 minutes is {{ $value | humanizePercentage }},
+            above the 5% threshold. Check recent deployments and Supabase connectivity.
+
+      # ── High Latency ──
+      - alert: TenantScaleHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum by(le) (rate(tenantscale_request_duration_ms_bucket[5m]))
+          ) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "P99 latency exceeds 5 seconds ({{ $value | humanizeDuration }})"
+          description: >
+            P99 request latency over the last 5 minutes is {{ $value | humanizeDuration }},
+            above the 5s threshold. Investigate slow queries or upstream dependencies.
+
+      # ── Elevated P95 Latency ──
+      - alert: TenantScaleElevatedLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by(le) (rate(tenantscale_request_duration_ms_bucket[5m]))
+          ) > 2000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "P95 latency exceeds 2 seconds ({{ $value | humanizeDuration }})"
+          description: >
+            P95 request latency over the last 5 minutes is {{ $value | humanizeDuration }}.
+            May indicate a performance regression.
+
+      # ── High 4xx Rate ──
+      - alert: TenantScaleHighClientErrorRate
+        expr: |
+          rate(tenantscale_requests_total{status=~"4.."}[5m])
+          /
+          rate(tenantscale_requests_total[5m])
+          > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Client error (4xx) rate exceeds 20%"
+          description: >
+            The 4xx error rate over the last 5 minutes is {{ $value | humanizePercentage }}.
+            This may indicate misconfigured clients or an API contract change.
+
+      # ── No Traffic (Dead API) ──
+      - alert: TenantScaleNoTraffic
+        expr: rate(tenantscale_requests_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "No API traffic detected for 10+ minutes"
+          description: >
+            The API has received zero requests in the last 10 minutes.
+            This may indicate a routing, DNS, or deployment issue.
+
+      # ── Sudden Drop in Active Tenants ──
+      - alert: TenantScaleTenantDrop
+        expr: tenantscale_active_tenants < (tenantscale_active_tenants offset 1h) * 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Active tenant count dropped >20% in the last hour"
+          description: >
+            Active tenant count dropped from {{ $value | humanize }} to
+            {{ $value | humanize }}. Investigate tenant deletion or data loss.
+
+  # ════════════════════════════════════════════════════════════════
+  # Business Signals
+  # ════════════════════════════════════════════════════════════════
+
+  - name: tenantscale-business
+    interval: 5m
+    rules:
+
+      # ── High Rate Limit Hit Rate ──
+      - alert: TenantScaleRateLimitSpike
+        expr: rate(tenantscale_ratelimit_hits_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Rate limit hits exceeding 10/min over 5 minutes"
+          description: >
+            Rate limit breaches are running at {{ $value | humanize }} per minute.
+            This may indicate a misconfigured client or an aggressive crawler.
+
+      # ── Webhook Delivery Failures ──
+      - alert: TenantScaleWebhookFailures
+        expr: rate(tenantscale_webhook_deliveries_total{status="failed"}[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High webhook delivery failure rate"
+          description: >
+            Webhook delivery failures are running at {{ $value | humanize }} per minute.
+            Check the webhook dispatcher logs and subscriber endpoint health.
+
+      # ── Webhook Success Rate Drop ──
+      - alert: TenantScaleWebhookDegraded
+        expr: |
+          rate(tenantscale_webhook_deliveries_total{status="failed"}[30m])
+          /
+          rate(tenantscale_webhook_deliveries_total[30m])
+          > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Webhook delivery success rate < 90% over 30 minutes"
+          description: >
+            Webhook delivery success rate is {{ $value | humanizePercentage }},
+            below the 90% SLO. Investigate subscriber endpoint availability.
+
+      # ── Auth Failure Spike ──
+      - alert: TenantScaleAuthFailureSpike
+        expr: rate(tenantscale_auth_failures_total[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Auth failures exceeding 20/min over 5 minutes"
+          description: >
+            Authentication failures are running at {{ $value | humanize }} per minute.
+            This may indicate credential stuffing, an expired service key, or a bug.
+
+      # ── Stripe API Errors ──
+      - alert: TenantScaleStripeErrors
+        expr: rate(tenantscale_stripe_api_calls_total{status="error"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Stripe API errors exceeding 5/min over 5 minutes"
+          description: >
+            Stripe API calls are failing at {{ $value | humanize }} per minute.
+            Check Stripe status and API key validity.
+
+  # ════════════════════════════════════════════════════════════════
+  # Security Signals
+  # ════════════════════════════════════════════════════════════════
+
+  - name: tenantscale-security
+    interval: 1m
+    rules:
+
+      # ── DDoS Guard Triggered ──
+      - alert: TenantScaleDDoSGuard
+        expr: rate(tenantscale_ratelimit_hits_total{type="ddos"}[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "DDoS guard blocking >50 requests/min"
+          description: >
+            The DDoS guard is actively blocking {{ $value | humanize }} requests per minute.
+            This may indicate an ongoing DDoS attack or a misconfigured client.
+
+      # ── Impersonation Attempt Spike ──
+      - alert: TenantScaleImpersonationSpike
+        expr: rate(tenantscale_auth_failures_total{reason="impersonation_invalid"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Impersonation token failures spike"
+          description: >
+            Invalid impersonation token attempts are at {{ $value | humanize }} per minute.
+            Investigate — this may indicate brute-force of impersonation tokens.

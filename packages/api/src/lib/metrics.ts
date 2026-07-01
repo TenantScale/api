@@ -75,27 +75,46 @@ class PromHistogram implements Histogram {
     bucketMap.set('sum', (bucketMap.get('sum') ?? 0) + value)
   }
 
+  reset(): void {
+    this.data.clear()
+  }
+
   collect(): string {
     let output = `# HELP ${this.name} ${this.help}\n# TYPE ${this.name} histogram\n`
     for (const [key, bucketMap] of this.data) {
-      const prefix =
-        key === '__total'
-          ? this.name
-          : `${this.name}{${key.replace(/"/g, '\\"')}}`
+      // Parse JSON label key into Prometheus label string (comma-separated, no trailing comma)
+      let labelStr = ''
+      if (key !== '__total') {
+        const labels = JSON.parse(key) as Record<string, string>
+        labelStr = Object.entries(labels)
+          .map(([k, v]) => `${k}="${v}"`)
+          .join(',')
+      }
+      // When labels are present, they separate name from _bucket/count/sum suffix:
+      //   metric_name{labels}_bucket{le="X"}  — WRONG
+      //   metric_name_bucket{labels,le="X"}  — CORRECT
+      // So we use labelPrefix="{labels," (or empty if no labels) and combine with le label
+      const labelPrefix = labelStr ? `${labelStr},` : ''
 
       const sortedBuckets = [...bucketMap.entries()]
         .filter(([k]) => !['+Inf', 'count', 'sum'].includes(k))
         .sort(([a], [b]) => Number(a) - Number(b))
 
       for (const [upper, count] of sortedBuckets) {
-        output += `${prefix}_bucket{le="${upper}"} ${count}\n`
+        output += `${this.name}_bucket{${labelPrefix}le="${upper}"} ${count}\n`
       }
 
       const count = bucketMap.get('count') ?? 0
       const sum = bucketMap.get('sum') ?? 0
-      output += `${prefix}_bucket{le="+Inf"} ${count}\n`
-      output += `${prefix}_count ${count}\n`
-      output += `${prefix}_sum ${sum}\n`
+      output += `${this.name}_bucket{${labelPrefix}le="+Inf"} ${count}\n`
+      // For _count and _sum, labels are only present when labelPrefix is non-empty
+      if (labelStr) {
+        output += `${this.name}_count{${labelStr}} ${count}\n`
+        output += `${this.name}_sum{${labelStr}} ${sum}\n`
+      } else {
+        output += `${this.name}_count ${count}\n`
+        output += `${this.name}_sum ${sum}\n`
+      }
     }
     return output
   }
@@ -114,6 +133,10 @@ class PromGauge implements Gauge {
   set(value: number, labels?: Record<string, string>): void {
     const key = labels ? JSON.stringify(labels) : '__total'
     this.data.set(key, value)
+  }
+
+  reset(): void {
+    this.data.clear()
   }
 
   collect(): string {

@@ -73,6 +73,7 @@ import { stripeWebhookRoutes } from './routes/stripe-webhook'
 import { subscriptionRoutes } from './routes/subscriptions'
 import { statusRoutes } from './routes/status'
 import { analyticsRoutes } from './routes/analytics'
+import { alertCheckRoutes } from './routes/alerts'
 
 const app = new Hono()
 
@@ -156,6 +157,7 @@ v1.route('/', portalRoutes)
 v1.route('/', adminPortalRoutes)
 v1.route('/', webhookRoutes)
 v1.route('/', cronRoutes)
+v1.route('/', alertCheckRoutes)
 v1.route('/', subscriptionRoutes)
 v1.route('/', statusRoutes)
 v1.route('/', analyticsRoutes)
