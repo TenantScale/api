@@ -1,8 +1,26 @@
-This repository contains multiple packages with different licenses:
+Business Source License 1.1
 
-- `packages/api/`   — BSL 1.1 (source available)
-- `packages/mcp/`   — MIT
-- `apps/portal/`    — Proprietary
-- `apps/admin/`     — Proprietary (deprecated)
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
 
-See each package's LICENSE file for details.
+Parameters
+
+Licensor:              ThatDevMat
+Licensed Work:         TenantScale API (packages/api)
+                        The Licensed Work is © 2025 ThatDevMat
+Additional Use Grant:  You may use the Licensed Work in production,
+                        provided it is not a multi-tenant platform
+                        that competes with TenantScale's hosted service.
+Change Date:           The earlier of 3 years from the first release
+                        of the Licensed Work, or 2029-01-01.
+Change License:        Apache License, Version 2.0
+
+Text
+
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work. The
+Licensor may make the Licensed Work available under a subsequent version of
+this License or a different license.
+
+For details on the Business Source License, see:
+https://mariadb.com/bsl11/
