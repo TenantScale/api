@@ -1,12 +1,17 @@
 api:
-  - packages/api/**/*
+  - changed-files:
+      - any-glob-to-any-file: packages/api/**/*
 
 documentation:
-  - packages/api/README.md
-  - "**/*.md"
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/api/README.md
+          - "**/*.md"
 
 dependencies:
-  - pnpm-lock.yaml
+  - changed-files:
+      - any-glob-to-any-file: pnpm-lock.yaml
 
 ci:
-  - .github/**/*
+  - changed-files:
+      - any-glob-to-any-file: .github/**/*
