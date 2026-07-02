@@ -12,7 +12,7 @@ TenantScale API is the management plane for multi-tenant SaaS applications. It h
 
 **Please do not report security vulnerabilities through public GitHub issues or discussions.**
 
-Instead, report via email to **thatdevmat@gmail.com**
+Instead, report via email to **matthew@thatdevmat.com**
 
 You should receive a response within **48 hours**. If you don't, please follow up.
 
