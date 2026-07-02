@@ -16,12 +16,12 @@ jobs:
     steps:
       - uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             👋 Thanks for opening your first issue in **TenantScale API**! We're building the control plane for multi-tenant SaaS — thanks for helping out.
 
             Please check our [Contributing Guide](https://github.com/TenantScale/api/blob/main/CONTRIBUTING.md).
-          pr-message: |
+          pr_message: |
             🎉 Thanks for opening your first pull request in **TenantScale API**!
 
             Quick checklist:
