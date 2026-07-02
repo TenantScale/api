@@ -15,7 +15,7 @@ importers:
         version: 2.0.6(hono@4.12.27)
       '@hono/zod-validator':
         specifier: ^0.4.0
-        version: 0.4.3(hono@4.12.27)(zod@3.25.76)
+        version: 0.4.3(hono@4.12.27)(zod@4.4.3)
       '@sentry/node':
         specifier: ^9.0.0
         version: 9.47.1
@@ -38,8 +38,8 @@ importers:
         specifier: ^22.3.0
         version: 22.3.0(@types/node@22.20.0)
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -2228,8 +2228,8 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -2374,10 +2374,10 @@ snapshots:
     dependencies:
       hono: 4.12.27
 
-  '@hono/zod-validator@0.4.3(hono@4.12.27)(zod@3.25.76)':
+  '@hono/zod-validator@0.4.3(hono@4.12.27)(zod@4.4.3)':
     dependencies:
       hono: 4.12.27
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -4445,4 +4445,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@3.25.76: {}
+  zod@4.4.3: {}
