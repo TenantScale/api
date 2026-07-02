@@ -1,0 +1,12 @@
+api:
+  - packages/api/**/*
+
+documentation:
+  - packages/api/README.md
+  - "**/*.md"
+
+dependencies:
+  - pnpm-lock.yaml
+
+ci:
+  - .github/**/*
