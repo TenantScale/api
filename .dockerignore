@@ -1,0 +1,13 @@
+node_modules/
+.git/
+.gitignore
+.env
+.env.*
+*.md
+*.tgz
+coverage/
+.turbo/
+__tests__/
+__fixtures__/
+dist/
+.next/
