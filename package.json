@@ -2,10 +2,13 @@
   "name": "tenantscale-cloud",
   "private": true,
   "scripts": {
-    "build": "pnpm --filter @tenantscale/api build",
-    "dev": "pnpm --filter @tenantscale/api dev",
-    "lint": "pnpm --filter @tenantscale/api lint",
-    "start": "pnpm --filter @tenantscale/api start",
+    "build": "pnpm --filter @tenantscale/portal build",
+    "build:all": "pnpm -r build",
+    "dev": "pnpm --filter @tenantscale/api dev & pnpm --filter @tenantscale/portal dev",
+    "dev:api": "pnpm --filter @tenantscale/api dev",
+    "dev:portal": "pnpm --filter @tenantscale/portal dev",
+    "lint": "pnpm --filter @tenantscale/api lint && pnpm --filter @tenantscale/portal lint",
+    "start": "pnpm --filter @tenantscale/portal start",
     "test": "pnpm --filter @tenantscale/api test"
   },
   "packageManager": "pnpm@9.15.0",
