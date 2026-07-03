@@ -1,13 +1,14 @@
 import { Hono } from 'hono'
 import { supabase } from '../db/supabase'
 import { logger } from '../lib/logger'
+import pkg from '../../package.json' with { type: 'json' }
 
 export const statusRoutes = new Hono()
 
 /**
  * GET /v1/status — Public status endpoint.
  * Returns API version, uptime, and dependency health.
- * No auth required — used by monitoring tools and customer dashboards.
+ * No auth required — used by monitoring tools, Docker healthcheck, and dashboards.
  */
 statusRoutes.get('/status', async (c) => {
   // Check Supabase connectivity
@@ -21,11 +22,12 @@ statusRoutes.get('/status', async (c) => {
   const stripeConfigured = !!process.env.STRIPE_SECRET_KEY
 
   return c.json({
-    version: '0.1.0',
+    service: 'TenantScale API',
+    version: pkg.version ?? '0.1.0',
+    mode: process.env.DEPLOYMENT_MODE ?? 'self_hosted',
     uptime: Math.floor(process.uptime()),
-    supabase: dbOk ? 'connected' : 'unreachable',
+    database: dbOk ? 'connected' : 'unreachable',
     stripe: stripeConfigured ? 'configured' : 'not_configured',
-    deployment: process.env.DEPLOYMENT_MODE ?? 'self_hosted',
     timestamp: new Date().toISOString(),
   })
 })

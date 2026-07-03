@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────
+# TenantScale API — Docker Compose
+# ──────────────────────────────────────────────────────
+#
+# TWO MODES:
+#
+# 1. API + your Supabase (default)
+#    cp .env.example .env  →  fill in SUPABASE_* vars  →  docker compose up -d
+#
+# 2. API + local PostgreSQL (full self-host)
+#    docker compose --profile full up -d
+#    Requires a local auth solution (GoTrue / custom JWT)
+#
+# For production: set a strong CRON_SECRET, restrict CORS_ORIGIN,
+# and configure Stripe / Sentry as needed.
+
+name: tenantscale
+
+services:
+  # ── API Server ──────────────────────────────────
+  api:
+    image: tenantscale/api:latest
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    ports:
+      - "4000:3001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:?SUPABASE_URL is required}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}
+      - PORT=3001
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - DEPLOYMENT_MODE=self_hosted
+      # Optional
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      - CRON_SECRET=${CRON_SECRET:-}
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── PostgreSQL (optional — enable with --profile full) ──
+  # This is a bare Postgres instance WITHOUT Supabase Auth.
+  # To use it, you also need GoTrue (Supabase Auth) or a custom auth solution.
+  # See docs/self-hosting.md for instructions.
+  db:
+    profiles:
+      - full
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tenantscale
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_DB: tenantscale
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./packages/api/supabase/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenantscale"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
