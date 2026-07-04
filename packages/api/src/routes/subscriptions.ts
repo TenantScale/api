@@ -31,7 +31,7 @@ export const subscriptionRoutes = new Hono()
 
 const createCheckoutSchema = z.object({
   plan_id: z.enum(['hobby', 'pro', 'scale'], {
-    errorMap: () => ({ message: 'Plan must be one of: hobby, pro, scale' }),
+    message: 'Plan must be one of: hobby, pro, scale',
   }),
   billing_interval: z.enum(['month', 'year']).default('month'),
 })

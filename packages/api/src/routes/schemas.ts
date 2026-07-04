@@ -54,10 +54,10 @@ export const updateTenantSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   is_active: z.boolean().optional(),
   plan_id: z.string().optional(),
-  features: z.record(z.unknown()).optional(),
-  config: z.record(z.unknown()).optional(),
-  settings: z.record(z.unknown()).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  features: z.record(z.string(), z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
@@ -81,7 +81,7 @@ export const updatePlanSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
   price_monthly: z.number().int().min(0).optional(),
-  features: z.record(z.union([z.boolean(), z.number(), z.string(), z.null()])).optional(),
+  features: z.record(z.string(), z.union([z.boolean(), z.number(), z.string(), z.null()])).optional(),
   max_users: z.number().int().min(0).nullable().optional(),
   sort_order: z.number().int().optional(),
 })
@@ -95,7 +95,7 @@ export type UpdatePlanInput = z.infer<typeof updatePlanSchema>
 export const createAuditEventSchema = z.object({
   action: z.string().min(1).max(200),
   resource: z.string().min(1).max(500),
-  details: z.record(z.unknown()).default({}),
+  details: z.record(z.string(), z.unknown()).default({}),
   actor_id: z.string().uuid().optional(),
 })
 
@@ -132,8 +132,8 @@ export const createImpersonationSchema = z.object({
 
 export const updateSettingsSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  settings: z.record(z.unknown()).optional(),
-  config: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 // ════════════════════════════════════════════════════════════════
@@ -169,7 +169,7 @@ export type PortalTenantCreateInput = z.infer<typeof portalTenantCreateSchema>
 export const trackEventSchema = z.object({
   metric: z.string().min(1).max(100),
   value: z.number().min(0).default(1),
-  properties: z.record(z.unknown()).default({}),
+  properties: z.record(z.string(), z.unknown()).default({}),
 })
 
 // ════════════════════════════════════════════════════════════════
