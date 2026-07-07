@@ -13,18 +13,18 @@
 //   - Extracts API key itself (doesn't depend on auth having run)
 // ──────────────────────────────────────────────────────
 
-import type { Context, Next } from 'hono'
-import { createHash } from 'node:crypto'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
+import type { Context, Next } from "hono";
+import { createHash } from "node:crypto";
+import { supabase } from "../db/supabase";
+import { logger } from "../lib/logger";
 
 // ── Interval registry ──
 // Tracks all created cleanup intervals so they can be cleared on demand
 // (e.g. during testing or module hot-reload).
-const _cleanupIntervals: ReturnType<typeof setInterval>[] = []
+const _cleanupIntervals: ReturnType<typeof setInterval>[] = [];
 
 function _registerInterval(interval: ReturnType<typeof setInterval>): void {
-  _cleanupIntervals.push(interval)
+  _cleanupIntervals.push(interval);
 }
 
 /**
@@ -33,41 +33,76 @@ function _registerInterval(interval: ReturnType<typeof setInterval>): void {
  */
 export function resetAllIntervals(): void {
   for (const interval of _cleanupIntervals) {
-    clearInterval(interval)
+    clearInterval(interval);
   }
-  _cleanupIntervals.length = 0
-  keyCache.clear()
-  ipCreationStore.clear()
+  _cleanupIntervals.length = 0;
+  keyCache.clear();
+  ipCreationStore.clear();
 }
 
 // ── Caches ──
 
 /** Cache for API key → tenant_id + plan lookup (5 min TTL) */
-const KEY_CACHE_TTL_MS = 5 * 60 * 1000
+const KEY_CACHE_TTL_MS = 5 * 60 * 1000;
 interface KeyCacheEntry {
-  tenant_id: string
-  plan_id: string
-  fetchedAt: number
+  tenant_id: string;
+  plan_id: string;
+  fetchedAt: number;
 }
-const keyCache = new Map<string, KeyCacheEntry>()
+const keyCache = new Map<string, KeyCacheEntry>();
 
 /** Daily counters are stored in the `rate_limits` table (survives restarts, works across instances) */
 
 function getTodayKey(): string {
-  const now = new Date()
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Seconds remaining until the daily counter resets (next UTC midnight). */
+function getSecondsUntilUtcMidnight(): number {
+  const now = new Date();
+  const nextMidnight = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0,
+    0,
+    0,
+  );
+  return Math.max(0, Math.ceil((nextMidnight - now.getTime()) / 1000));
+}
+
+// ── Standardized rate-limit error shape ──
+// Both layers respond with: { error: string, code: string, retry_after?: number }
+// and set a `Retry-After` header (in seconds) when retry_after is present.
+
+interface RateLimitErrorBody {
+  error: string;
+  code: string;
+  retry_after?: number;
+}
+
+function rateLimitError(
+  c: Context,
+  body: RateLimitErrorBody,
+  status: 429 = 429,
+) {
+  if (body.retry_after !== undefined) {
+    c.header("Retry-After", String(body.retry_after));
+  }
+  return c.json(body, status);
 }
 
 // ── Layer 1: IP-based DDoS guard ──
 
 interface DdosGuardOptions {
-  maxRequests: number
-  windowMs: number
+  maxRequests: number;
+  windowMs: number;
 }
 
 interface RateLimitEntry {
-  count: number
-  resetAt: number
+  count: number;
+  resetAt: number;
 }
 
 /**
@@ -76,54 +111,63 @@ interface RateLimitEntry {
  * Uses a short window (e.g. 60s) with a high limit.
  */
 export function createDdosGuard(options: DdosGuardOptions) {
-  const { maxRequests, windowMs } = options
-  const store = new Map<string, RateLimitEntry>()
+  const { maxRequests, windowMs } = options;
+  const store = new Map<string, RateLimitEntry>();
 
   // Periodic cleanup every 60 seconds
   const cleanupInterval = setInterval(() => {
-    const now = Date.now()
+    const now = Date.now();
     for (const [key, entry] of Array.from(store.entries())) {
       if (entry.resetAt <= now) {
-        store.delete(key)
+        store.delete(key);
       }
     }
-  }, 60_000)
-  if (cleanupInterval.unref) cleanupInterval.unref()
-  _registerInterval(cleanupInterval)
+  }, 60_000);
+  if (cleanupInterval.unref) cleanupInterval.unref();
+  _registerInterval(cleanupInterval);
 
   const middlewareFn = async (c: Context, next: Next) => {
-    const key = c.req.header('x-forwarded-for')
-      ?? c.req.header('x-real-ip')
-      ?? 'unknown'
+    const key =
+      c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
 
-    const now = Date.now()
-    let entry = store.get(key)
+    const now = Date.now();
+    let entry = store.get(key);
 
     if (!entry || entry.resetAt <= now) {
-      entry = { count: 0, resetAt: now + windowMs }
-      store.set(key, entry)
+      entry = { count: 0, resetAt: now + windowMs };
+      store.set(key, entry);
     }
 
-    entry.count++
+    entry.count++;
 
-    c.header('X-RateLimit-Limit', maxRequests.toString())
-    c.header('X-RateLimit-Remaining', String(Math.max(0, maxRequests - entry.count)))
-    c.header('X-RateLimit-Reset', String(Math.ceil(entry.resetAt / 1000)))
+    c.header("X-RateLimit-Limit", maxRequests.toString());
+    c.header(
+      "X-RateLimit-Remaining",
+      String(Math.max(0, maxRequests - entry.count)),
+    );
+    c.header("X-RateLimit-Reset", String(Math.ceil(entry.resetAt / 1000)));
 
     if (entry.count > maxRequests) {
-      const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-      return c.json({ error: 'Too many requests', retry_after: retryAfter }, 429)
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      return rateLimitError(c, {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retry_after: retryAfter,
+      });
     }
 
-    await next()
-  }
+    await next();
+  };
 
-  Object.defineProperty(middlewareFn, 'cleanup', {
-    value: () => { clearInterval(cleanupInterval); store.clear() },
+  Object.defineProperty(middlewareFn, "cleanup", {
+    value: () => {
+      clearInterval(cleanupInterval);
+      store.clear();
+    },
     writable: false,
-  })
+  });
 
-  return middlewareFn
+  return middlewareFn;
 }
 
 // ── Layer 2: Plan-aware daily API call limiter ──
@@ -143,204 +187,224 @@ export function createPlanRateLimiter() {
   // Periodic cleanup of stale cache entries (every 5 min)
   // Daily counters are cleaned up by the DB cron (cleanup_rate_limits)
   const cleanupInterval = setInterval(() => {
-    const now = Date.now()
+    const now = Date.now();
     for (const [key, entry] of Array.from(keyCache.entries())) {
       if (now - entry.fetchedAt > KEY_CACHE_TTL_MS) {
-        keyCache.delete(key)
+        keyCache.delete(key);
       }
     }
-  }, 300_000)
-  if (cleanupInterval.unref) cleanupInterval.unref()
-  _registerInterval(cleanupInterval)
+  }, 300_000);
+  if (cleanupInterval.unref) cleanupInterval.unref();
+  _registerInterval(cleanupInterval);
 
   const middlewareFn = async (c: Context, next: Next) => {
     // ── 1. Extract tenant_id ──
 
-    let tenantId: string | null = null
-    let planId: string | null = null
+    let tenantId: string | null = null;
+    let planId: string | null = null;
 
     // First, check if auth middleware already ran (set apiKey context)
-    const existingKey = c.get('apiKey') as { tenant_id: string } | undefined
+    const existingKey = c.get("apiKey") as { tenant_id: string } | undefined;
     if (existingKey?.tenant_id) {
-      tenantId = existingKey.tenant_id
+      tenantId = existingKey.tenant_id;
       // We need plan_id — check if it's cached
-      const cached = keyCache.get(tenantId)
+      const cached = keyCache.get(tenantId);
       if (cached) {
-        planId = cached.plan_id
+        planId = cached.plan_id;
       }
     } else {
       // Self-contained mode: extract Bearer token and resolve tenant
-      const authHeader = c.req.header('Authorization')
-      if (!authHeader?.startsWith('Bearer ')) {
+      const authHeader = c.req.header("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
         // Public route — skip rate limiting
-        await next()
-        return
+        await next();
+        return;
       }
-      const rawKey = authHeader.slice(7).trim()
+      const rawKey = authHeader.slice(7).trim();
       if (!rawKey) {
-        await next()
-        return
+        await next();
+        return;
       }
 
-      const keyHash = createHash('sha256').update(rawKey).digest('hex')
+      const keyHash = createHash("sha256").update(rawKey).digest("hex");
 
       // Check cache
-      const cached = keyCache.get(keyHash)
+      const cached = keyCache.get(keyHash);
       if (cached && Date.now() - cached.fetchedAt < KEY_CACHE_TTL_MS) {
-        tenantId = cached.tenant_id
-        planId = cached.plan_id
+        tenantId = cached.tenant_id;
+        planId = cached.plan_id;
       } else {
         // Look up the key
         try {
           const { data: keyRecord, error } = await supabase
-            .from('api_keys')
-            .select('tenant_id, tenant:tenants!inner(plan_id)')
-            .eq('key_hash', keyHash)
-            .single()
+            .from("api_keys")
+            .select("tenant_id, tenant:tenants!inner(plan_id)")
+            .eq("key_hash", keyHash)
+            .single();
 
           if (!error && keyRecord) {
-            const tenant = keyRecord.tenant as unknown as { plan_id: string }
-            tenantId = keyRecord.tenant_id
-            planId = tenant.plan_id
+            const tenant = keyRecord.tenant as unknown as { plan_id: string };
+            tenantId = keyRecord.tenant_id;
+            planId = tenant.plan_id;
 
             keyCache.set(keyHash, {
               tenant_id: tenantId!,
-              plan_id: planId ?? 'free',
+              plan_id: planId ?? "free",
               fetchedAt: Date.now(),
-            })
+            });
           }
         } catch (err) {
-          logger.warn({ err }, '[PlanLimiter] Failed to resolve key')
+          logger.warn({ err }, "[PlanLimiter] Failed to resolve key");
           // Allow the request through on lookup failure
-          await next()
-          return
+          await next();
+          return;
         }
       }
     }
 
     if (!tenantId) {
-      await next()
-      return
+      await next();
+      return;
     }
 
     // ── 2. Resolve plan's daily limit ──
 
     // Try to get plan_id from cache first
-    let dailyLimit: number | null = null
-    const cachedPlan = keyCache.get(tenantId)
-    const effectivePlanId = planId ?? cachedPlan?.plan_id
+    let dailyLimit: number | null = null;
+    const cachedPlan = keyCache.get(tenantId);
+    const effectivePlanId = planId ?? cachedPlan?.plan_id;
 
     if (effectivePlanId) {
-      const planCacheKey = `plan:${effectivePlanId}`
-      const planCached = keyCache.get(planCacheKey)
+      const planCacheKey = `plan:${effectivePlanId}`;
+      const planCached = keyCache.get(planCacheKey);
       if (planCached && Date.now() - planCached.fetchedAt < KEY_CACHE_TTL_MS) {
-        dailyLimit = planCached.plan_id as unknown as number ?? null  // Stored in plan_id field as hack — cleaner with separate cache
+        dailyLimit = (planCached.plan_id as unknown as number) ?? null; // Stored in plan_id field as hack — cleaner with separate cache
       }
     }
 
     if (dailyLimit === null && effectivePlanId) {
       try {
         const { data: plan } = await supabase
-          .from('plans')
-          .select('api_calls_per_day')
-          .eq('id', effectivePlanId)
-          .single()
+          .from("plans")
+          .select("api_calls_per_day")
+          .eq("id", effectivePlanId)
+          .single();
 
-        dailyLimit = plan?.api_calls_per_day ?? null
+        dailyLimit = plan?.api_calls_per_day ?? null;
         if (dailyLimit !== null) {
           keyCache.set(`plan:${effectivePlanId}`, {
-            tenant_id: '',
+            tenant_id: "",
             plan_id: String(dailyLimit),
             fetchedAt: Date.now(),
-          })
+          });
         }
       } catch (err) {
-        logger.warn({ err, plan: effectivePlanId }, '[PlanLimiter] Failed to fetch plan limit')
+        logger.warn(
+          { err, plan: effectivePlanId },
+          "[PlanLimiter] Failed to fetch plan limit",
+        );
       }
     }
 
     // null = unlimited (enterprise)
     if (dailyLimit === null || dailyLimit === 0) {
-      await next()
-      return
+      await next();
+      return;
     }
 
     // ── 3. Enforce daily count (persisted in Postgres — survives restarts) ──
 
-    const today = getTodayKey()
+    const today = getTodayKey();
 
     try {
       const { data, error } = await supabase
-        .rpc('increment_rate_limit', {
+        .rpc("increment_rate_limit", {
           p_tenant_id: tenantId,
           p_date: today,
         })
-        .single()
+        .single();
 
       if (error) {
-        logger.warn({ error: error.message, tenantId }, '[PlanLimiter] Failed to increment rate limit — allowing request')
-        await next()
-        return
+        logger.warn(
+          { error: error.message, tenantId },
+          "[PlanLimiter] Failed to increment rate limit — allowing request",
+        );
+        await next();
+        return;
       }
 
-      const currentCount = (data as { current_count: number } | undefined)?.current_count ?? 0
+      const currentCount =
+        (data as { current_count: number } | undefined)?.current_count ?? 0;
 
-      c.header('X-RateLimit-Limit-Daily', dailyLimit.toString())
-      c.header('X-RateLimit-Remaining-Daily', String(Math.max(0, dailyLimit - currentCount)))
+      c.header("X-RateLimit-Limit-Daily", dailyLimit.toString());
+      c.header(
+        "X-RateLimit-Remaining-Daily",
+        String(Math.max(0, dailyLimit - currentCount)),
+      );
 
       if (currentCount > dailyLimit) {
-        const msg = `Daily API call limit reached (${dailyLimit}). Upgrade your plan for more.`
-        return c.json({ error: msg, code: 'DAILY_LIMIT_EXCEEDED', plan_limit: dailyLimit }, 429)
+        const retryAfter = getSecondsUntilUtcMidnight();
+        return rateLimitError(c, {
+          error: `Daily API call limit reached (${dailyLimit}). Upgrade your plan for more.`,
+          code: "DAILY_LIMIT_EXCEEDED",
+          retry_after: retryAfter,
+        });
       }
     } catch (err) {
-      logger.error({ err, tenantId }, '[PlanLimiter] Rate limit check threw — allowing request')
+      logger.error(
+        { err, tenantId },
+        "[PlanLimiter] Rate limit check threw — allowing request",
+      );
       // Fail open on DB error — better to let a few requests through than block all traffic
-      await next()
-      return
+      await next();
+      return;
     }
 
-    await next()
-  }
+    await next();
+  };
 
-  Object.defineProperty(middlewareFn, 'cleanup', {
-    value: () => { clearInterval(cleanupInterval); keyCache.clear() },
+  Object.defineProperty(middlewareFn, "cleanup", {
+    value: () => {
+      clearInterval(cleanupInterval);
+      keyCache.clear();
+    },
     writable: false,
-  })
+  });
 
-  return middlewareFn
+  return middlewareFn;
 }
 
 // ── Re-export old name for backward compat ──
-export { createDdosGuard as createRateLimiter }
+export { createDdosGuard as createRateLimiter };
 
 // ── Layer 3: IP-based creation rate limiter ──
 // Applied to anonymous tenant creation endpoints.
 // Prevents a single IP from creating excessive tenants.
 // In-memory store — replace with Upstash Redis for multi-instance deployments.
 
-const MAX_CREATIONS_PER_IP = 5
-const CREATION_WINDOW_MS = 3600_000 // 1 hour
-const CREATION_CLEANUP_MS = 300_000 // 5 min
+const MAX_CREATIONS_PER_IP = 5;
+const CREATION_WINDOW_MS = 3600_000; // 1 hour
+const CREATION_CLEANUP_MS = 300_000; // 5 min
 
 interface CreationEntry {
-  timestamps: number[]
+  timestamps: number[];
 }
 
-const ipCreationStore = new Map<string, CreationEntry>()
+const ipCreationStore = new Map<string, CreationEntry>();
 
 // Periodic cleanup every 5 minutes
 const creationCleanupInterval = setInterval(() => {
-  const now = Date.now()
-  const cutoff = now - CREATION_WINDOW_MS
+  const now = Date.now();
+  const cutoff = now - CREATION_WINDOW_MS;
   for (const [ip, entry] of Array.from(ipCreationStore.entries())) {
-    entry.timestamps = entry.timestamps.filter(t => t > cutoff)
+    entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
     if (entry.timestamps.length === 0) {
-      ipCreationStore.delete(ip)
+      ipCreationStore.delete(ip);
     }
   }
-}, CREATION_CLEANUP_MS)
-if (creationCleanupInterval.unref) creationCleanupInterval.unref()
-_registerInterval(creationCleanupInterval)
+}, CREATION_CLEANUP_MS);
+if (creationCleanupInterval.unref) creationCleanupInterval.unref();
+_registerInterval(creationCleanupInterval);
 
 /**
  * Check if an IP has exceeded the per-IP creation rate limit.
@@ -350,29 +414,29 @@ _registerInterval(creationCleanupInterval)
  * @returns true if the request should be blocked
  */
 export function checkIpCreationLimit(ip: string): boolean {
-  const now = Date.now()
-  const cutoff = now - CREATION_WINDOW_MS
+  const now = Date.now();
+  const cutoff = now - CREATION_WINDOW_MS;
 
-  let entry = ipCreationStore.get(ip)
+  let entry = ipCreationStore.get(ip);
   if (!entry) {
-    entry = { timestamps: [] }
-    ipCreationStore.set(ip, entry)
+    entry = { timestamps: [] };
+    ipCreationStore.set(ip, entry);
   }
 
   // Prune expired timestamps
-  entry.timestamps = entry.timestamps.filter(t => t > cutoff)
+  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
 
   if (entry.timestamps.length >= MAX_CREATIONS_PER_IP) {
-    return true // Blocked
+    return true; // Blocked
   }
 
-  entry.timestamps.push(now)
-  return false // Allowed
+  entry.timestamps.push(now);
+  return false; // Allowed
 }
 
 /**
  * Reset IP creation state (for testing or manual unblock).
  */
 export function resetIpCreationStore(): void {
-  ipCreationStore.clear()
+  ipCreationStore.clear();
 }
