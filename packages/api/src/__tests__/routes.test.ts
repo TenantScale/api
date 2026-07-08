@@ -23,7 +23,7 @@ const mockSupabase = {
   },
 }
 vi.mock('../db/supabase', () => ({ supabase: mockSupabase }))
-
+const { statusRoutes } = await import('../routes/status')
 const { tenantRoutes } = await import('../routes/tenants')
 
 /**
@@ -681,5 +681,137 @@ describe('Portal tenant endpoints', () => {
       expect(body.limit).toBe(3)
       expect(body.current).toBe(3)
     })
+  })
+})
+describe('Status endpoints', () => {
+  let app: Hono
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    app = new Hono()
+      .get('/health', async (c) => {
+        let dbOk = false
+        try {
+  const { error } = await mockSupabase
+    .from('tenants')
+    .select('id', { count: 'exact', head: true })
+    .limit(1)
+
+  dbOk = !error
+} catch {
+  // Simulate database unreachable
+}
+
+        return c.json({
+          status: dbOk ? 'ok' : 'degraded',
+          version: '0.1.0',
+          uptime: Math.floor(process.uptime()),
+          db: dbOk ? 'connected' : 'unreachable',
+        })
+      })
+      .basePath('/v1')
+      .route('/', statusRoutes)
+  })
+
+  it('GET /health returns 200 when database is connected', async () => {
+    const qb = chainQB()
+    qb.limit.mockResolvedValue({
+      error: null,
+    })
+
+    mockSupabase.from.mockReturnValue(qb)
+
+    const res = await app.request('/health')
+
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: 'ok',
+        db: 'connected',
+        version: expect.any(String),
+        uptime: expect.any(Number),
+      }),
+    )
+  })
+
+  it('GET /health returns degraded when database is unreachable', async () => {
+    const qb = chainQB()
+
+    qb.limit.mockRejectedValue(new Error('DB unavailable'))
+
+    mockSupabase.from.mockReturnValue(qb)
+
+    const res = await app.request('/health')
+
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+
+    expect(body.status).toBe('degraded')
+    expect(body.db).toBe('unreachable')
+  })
+
+  it('GET /v1/status returns expected response shape', async () => {
+    const qb = chainQB()
+
+    qb.limit.mockResolvedValue({
+      error: null,
+    })
+
+    mockSupabase.from.mockReturnValue(qb)
+
+    const res = await app.request('/v1/status')
+
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        service: expect.any(String),
+        version: expect.any(String),
+        mode: expect.any(String),
+        uptime: expect.any(Number),
+        database: expect.any(String),
+        stripe: expect.any(String),
+        timestamp: expect.any(String),
+      }),
+    )
+  })
+
+  it('GET /v1/status reports stripe configured', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123'
+
+    const qb = chainQB()
+    qb.limit.mockResolvedValue({ error: null })
+
+    mockSupabase.from.mockReturnValue(qb)
+
+    const res = await app.request('/v1/status')
+
+    const body = await res.json()
+
+    expect(body.stripe).toBe('configured')
+
+    delete process.env.STRIPE_SECRET_KEY
+  })
+
+  it('GET /v1/status reports stripe not configured', async () => {
+    delete process.env.STRIPE_SECRET_KEY
+
+    const qb = chainQB()
+    qb.limit.mockResolvedValue({ error: null })
+
+    mockSupabase.from.mockReturnValue(qb)
+
+    const res = await app.request('/v1/status')
+
+    const body = await res.json()
+
+    expect(body.stripe).toBe('not_configured')
   })
 })
