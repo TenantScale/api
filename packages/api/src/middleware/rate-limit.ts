@@ -58,6 +58,35 @@ function getTodayKey(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`
 }
 
+/** Seconds remaining until the daily counter resets (next UTC midnight). */
+function getSecondsUntilUtcMidnight(): number {
+  const now = new Date()
+  const nextMidnight = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0,
+    0,
+    0,
+  )
+  return Math.max(0, Math.ceil((nextMidnight - now.getTime()) / 1000))
+}
+
+/** Standardised rate-limit error shape used by both layers. */
+interface RateLimitErrorBody {
+  error: string
+  code: string
+  retry_after?: number
+}
+
+/** Build a 429 response with a Retry-After header when retry_after is provided. */
+function rateLimitError(c: Context, body: RateLimitErrorBody, status: 429 = 429) {
+  if (body.retry_after !== undefined) {
+    c.header('Retry-After', String(body.retry_after))
+  }
+  return c.json(body, status)
+}
+
 // ── Layer 1: IP-based DDoS guard ──
 
 interface DdosGuardOptions {
@@ -112,7 +141,11 @@ export function createDdosGuard(options: DdosGuardOptions) {
 
     if (entry.count > maxRequests) {
       const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-      return c.json({ error: 'Too many requests', retry_after: retryAfter }, 429)
+      return rateLimitError(c, {
+        error: 'Too many requests',
+        code: 'RATE_LIMITED',
+        retry_after: retryAfter,
+      })
     }
 
     await next()
@@ -290,7 +323,11 @@ export function createPlanRateLimiter() {
 
       if (currentCount > dailyLimit) {
         const msg = `Daily API call limit reached (${dailyLimit}). Upgrade your plan for more.`
-        return c.json({ error: msg, code: 'DAILY_LIMIT_EXCEEDED', plan_limit: dailyLimit }, 429)
+        return rateLimitError(c, {
+          error: msg,
+          code: 'DAILY_LIMIT_EXCEEDED',
+          retry_after: getSecondsUntilUtcMidnight(),
+        })
       }
     } catch (err) {
       logger.error({ err, tenantId }, '[PlanLimiter] Rate limit check threw — allowing request')
