@@ -129,7 +129,7 @@ describe('requirePlanFeature(webhooks)', () => {
   it('allows webhook creation when plan has webhooks: true (Pro tier)', async () => {
     // API key lookup succeeds — must include the nested tenant join
     // that requireApiKey middleware checks
-    keysQB.single.mockResolvedValue({
+    keysQB.maybeSingle.mockResolvedValue({
       data: {
         id: 'key-1',
         tenant_id: 'tenant-pro-1',
@@ -144,7 +144,7 @@ describe('requirePlanFeature(webhooks)', () => {
     })
 
     // Tenant lookup for plan-store
-    tenantsQB.single.mockResolvedValue({
+    tenantsQB.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-pro-1', plan_id: 'pro' },
       error: null,
     })
@@ -174,7 +174,7 @@ describe('requirePlanFeature(webhooks)', () => {
 
   it('blocks webhook creation when plan has webhooks: false (Free tier)', async () => {
     // API key lookup succeeds — must include the nested tenant join
-    keysQB.single.mockResolvedValue({
+    keysQB.maybeSingle.mockResolvedValue({
       data: {
         id: 'key-2',
         tenant_id: 'tenant-free-1',
@@ -189,7 +189,7 @@ describe('requirePlanFeature(webhooks)', () => {
     })
 
     // Tenant lookup for plan-store — Free tier
-    tenantsQB.single.mockResolvedValue({
+    tenantsQB.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-free-1', plan_id: 'free' },
       error: null,
     })
@@ -251,7 +251,7 @@ describe('requirePlanLimit', () => {
       return chainQB()
     })
 
-    tenantsQB_local.single.mockResolvedValue({
+    tenantsQB_local.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-1', plan_id: 'free' },
       error: null,
     })
@@ -275,7 +275,7 @@ describe('requirePlanLimit', () => {
       return chainQB()
     })
 
-    tenantsQB_local.single.mockResolvedValue({
+    tenantsQB_local.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-ent', plan_id: 'enterprise' },
       error: null,
     })
@@ -316,7 +316,7 @@ describe('requirePlanLimit', () => {
       return chainQB()
     })
 
-    tenantsQB_local.single.mockResolvedValue({
+    tenantsQB_local.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-free-1', plan_id: 'free' },
       error: null,
     })
@@ -340,7 +340,7 @@ describe('requirePlanLimit', () => {
       return chainQB()
     })
 
-    tenantsQB_local.single.mockResolvedValue({
+    tenantsQB_local.maybeSingle.mockResolvedValue({
       data: { id: 'tenant-pro-1', plan_id: 'pro' },
       error: null,
     })
@@ -362,7 +362,7 @@ describe('requirePlanLimit', () => {
       return chainQB()
     })
 
-    tenantsQB_local.single.mockResolvedValue({
+    tenantsQB_local.maybeSingle.mockResolvedValue({
       data: null,
       error: new Error('Not found'),
     })
