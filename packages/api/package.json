@@ -18,7 +18,7 @@
     "@sentry/node": "^10.63.0",
     "@supabase/supabase-js": "^2.49.0",
     "@tenantscale/sdk": "^0.3.0",
-    "hono": "^4.6.0",
+    "hono": "^4.12.31",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "stripe": "^22.3.0",
