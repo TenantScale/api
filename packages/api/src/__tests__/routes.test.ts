@@ -749,7 +749,7 @@ describe('Status endpoints', () => {
 
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await res.json() as Record<string, unknown>
 
     expect(body.status).toBe('degraded')
     expect(body.db).toBe('unreachable')
@@ -793,7 +793,7 @@ describe('Status endpoints', () => {
 
     const res = await app.request('/v1/status')
 
-    const body = await res.json()
+    const body = await res.json() as Record<string, unknown>
 
     expect(body.stripe).toBe('configured')
 
@@ -810,7 +810,7 @@ describe('Status endpoints', () => {
 
     const res = await app.request('/v1/status')
 
-    const body = await res.json()
+    const body = await res.json() as Record<string, unknown>
 
     expect(body.stripe).toBe('not_configured')
   })
