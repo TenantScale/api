@@ -45,6 +45,35 @@ adminRoutes.route('/', sharedRouter)
 // No auth — token itself is the credential
 // IP-based rate limiting prevents brute-force attacks against the token
 const impersonateGuard = createDdosGuard({ maxRequests: 10, windowMs: 60_000 })
+
+/**
+ * POST /admin/auth/impersonate
+ *
+ * Redeem a one-time impersonation token issued for a support/admin
+ * impersonation session. The token itself is the credential — there
+ * is no separate API key or session auth on this endpoint.
+ *
+ * Auth: none. Protected instead by IP-based rate limiting
+ * (`createDdosGuard`, max 10 requests/minute) to prevent brute-forcing
+ * the token.
+ *
+ * Input (JSON body):
+ * - `token` (string, required) — the raw impersonation token to redeem
+ *
+ * Response: `200 OK`
+ * ```
+ * {
+ *   "success": true,
+ *   "target_user_id": string,
+ *   "target_tenant_id": string,
+ *   "expires_at": string // ISO date
+ * }
+ * ```
+ *
+ * Errors:
+ * - `400` — `token` missing from request body
+ * - `401` — token not found, already revoked, or expired
+ */
 adminRoutes.post('/auth/impersonate', impersonateGuard, async (c) => {
   const { token } = await c.req.json<{ token: string }>()
 

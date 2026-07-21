@@ -73,18 +73,40 @@ async function requireCronAuth(c: Context, next: Next) {
   await next()
 }
 
-// ════════════════════════════════════════════════════════════════
-// POST /admin/cron/cleanup-audit — prune expired audit_events
-// ════════════════════════════════════════════════════════════════
-//
-// Calls the DB function cleanup_expired_audit_events() which
-// deletes audit rows older than each plan's retention setting.
-// Returns a per-plan summary of deleted rows.
-//
-// Schedule: recommended daily at 3am
-// Auth: X-Cron-Secret header or admin API key
-// ════════════════════════════════════════════════════════════════
-
+/**
+ * POST /admin/cron/cleanup-audit
+ *
+ * Prune expired `audit_events` rows. Calls the DB function
+ * `cleanup_expired_audit_events()`, which deletes audit rows older
+ * than each plan's configured retention period, and returns a
+ * per-plan summary of how many rows were deleted.
+ *
+ * Intended to be called by an external cron scheduler (recommended:
+ * daily at 3am), but can also be triggered manually.
+ *
+ * Auth: `requireCronAuth` — either an `X-Cron-Secret` header matching
+ * the `CRON_SECRET` env var, or a `Bearer` admin API key (scope
+ * `admin`).
+ *
+ * Input: none.
+ *
+ * Response: `200 OK`
+ * ```
+ * {
+ *   "success": true,
+ *   "total_deleted": number,
+ *   "per_plan": Array<{ plan_id: string; deleted_rows: number }>,
+ *   "duration_ms": number
+ * }
+ * ```
+ *
+ * Errors:
+ * - `401` — missing/empty/invalid API key, or invalid cron secret
+ * - `403` — API key lacks `admin` scope
+ * - `503` — `CRON_SECRET` not configured on the server
+ * - `500` — the `cleanup_expired_audit_events` RPC failed, or an
+ *   unexpected exception was thrown during cleanup
+ */
 cronRoutes.post('/admin/cron/cleanup-audit', requireCronAuth, async (c) => {
   const startTime = Date.now()
 
@@ -123,14 +145,41 @@ cronRoutes.post('/admin/cron/cleanup-audit', requireCronAuth, async (c) => {
   }
 })
 
-// ════════════════════════════════════════════════════════════════
-// GET /admin/cron/status — preview what would be deleted (dry run)
-// ════════════════════════════════════════════════════════════════
-//
-// Returns counts of expired audit events per plan WITHOUT deleting.
-// Useful for monitoring / dashboards.
-// ════════════════════════════════════════════════════════════════
-
+/**
+ * GET /admin/cron/status
+ *
+ * Dry-run preview of the audit cleanup job. For each plan with an
+ * `audit_log_retention_days` feature configured, counts how many
+ * `audit_events` rows are currently past their retention cutoff,
+ * WITHOUT deleting anything. Useful for monitoring/dashboards.
+ *
+ * Auth: `requireCronAuth` — either an `X-Cron-Secret` header matching
+ * the `CRON_SECRET` env var, or a `Bearer` admin API key (scope
+ * `admin`).
+ *
+ * Input: none.
+ *
+ * Response: `200 OK`
+ * ```
+ * {
+ *   "dry_run": true,
+ *   "total_expired": number,
+ *   "per_plan": Array<{
+ *     plan_id: string;
+ *     plan_name: string;
+ *     retention_days: number;
+ *     expired_count: number;
+ *   }>
+ * }
+ * ```
+ *
+ * Errors:
+ * - `401` — missing/empty/invalid API key, or invalid cron secret
+ * - `403` — API key lacks `admin` scope
+ * - `503` — `CRON_SECRET` not configured on the server
+ * - `500` — failed to fetch plans, or an unexpected exception was
+ *   thrown while computing the status
+ */
 cronRoutes.get('/admin/cron/status', requireCronAuth, async (c) => {
   try {
     const { data: plans, error: plansError } = await supabase

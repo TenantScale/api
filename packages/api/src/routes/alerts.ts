@@ -33,6 +33,18 @@ interface AlertResult {
 
 // ── Middleware: cron auth (same pattern as admin/cron) ──
 
+/**
+ * Auth middleware for the alert-check route. Accepts either credential:
+ *
+ *  - `Authorization: Bearer <api key>` — the key is SHA-256 hashed and
+ *    looked up in `api_keys`; the request passes only if the matching
+ *    record's `scopes` includes `admin`.
+ *  - `X-Cron-Secret: <secret>` — passes if it exactly matches the
+ *    `CRON_SECRET` environment variable.
+ *
+ * Responds `401 { error: 'Unauthorized' }` if neither credential is
+ * present or valid.
+ */
 async function requireAlertAuth(c: any, next: any) {
   const authHeader = c.req.header('Authorization')
 
@@ -65,6 +77,12 @@ async function requireAlertAuth(c: any, next: any) {
 
 // ── Alert evaluations ──
 
+/**
+ * Evaluates the `HighErrorRate` alert: fraction of `audit_events` in the
+ * last 5 minutes whose `action` matches `%error%`/`%fail%`. Fires when
+ * that rate exceeds 5%. On query failure, returns `status: 'ok'` with the
+ * error message folded into `message` rather than throwing.
+ */
 async function evalHighErrorRate(): Promise<AlertResult> {
   try {
     const fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString()
@@ -103,6 +121,13 @@ async function evalHighErrorRate(): Promise<AlertResult> {
   }
 }
 
+/**
+ * Evaluates the `TenantDrop` alert: compares the current count of active
+ * tenants to the count of tenants that became active within the last
+ * hour. Fires when the current count is more than 20% below that recent
+ * count. On query failure, returns `status: 'ok'` with the error message
+ * folded into `message` rather than throwing.
+ */
 async function evalActiveTenants(): Promise<AlertResult> {
   try {
     const now = new Date()
@@ -144,6 +169,13 @@ async function evalActiveTenants(): Promise<AlertResult> {
   }
 }
 
+/**
+ * Evaluates the `WebhookDegraded` alert: fraction of `webhook_deliveries`
+ * in the last 15 minutes with `status: 'failed'`. Fires when the failure
+ * rate exceeds 10% (i.e. success rate drops below the 90% SLO). On query
+ * failure, returns `status: 'ok'` with the error message folded into
+ * `message` rather than throwing.
+ */
 async function evalWebhookFailures(): Promise<AlertResult> {
   try {
     const fifteenMinAgo = new Date(Date.now() - 15 * 60000).toISOString()
@@ -184,6 +216,15 @@ async function evalWebhookFailures(): Promise<AlertResult> {
   }
 }
 
+/**
+ * Evaluates the `AuthFailureRate` alert: ratio of successful
+ * (`api_key.authenticated`) to total (`api_key.authenticated` +
+ * `api_key.rejected`) auth attempts in `audit_events` over the last 5
+ * minutes. Fires when the success rate drops below 50%, which may
+ * indicate a credential-stuffing or brute-force attempt. On query
+ * failure, returns `status: 'ok'` with the error message folded into
+ * `message` rather than throwing.
+ */
 async function evalAuthFailureRate(): Promise<AlertResult> {
   try {
     const fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString()
@@ -235,6 +276,61 @@ async function evalAuthFailureRate(): Promise<AlertResult> {
 // independent — a single failure won't block other alerts.
 // ════════════════════════════════════════════════════════════════
 
+/**
+ * POST /admin/cron/check-alerts
+ *
+ * Evaluates all configured alert conditions (`HighErrorRate`,
+ * `TenantDrop`, `WebhookDegraded`, `AuthFailureRate`) and returns their
+ * current state. Intended to be invoked by an external cron scheduler on
+ * a fixed interval (recommended: every 5 minutes); the caller is expected
+ * to forward `firing` alerts to a notification channel (Slack, email,
+ * PagerDuty, etc).
+ *
+ * Alerts are evaluated concurrently via `Promise.allSettled` — each
+ * evaluator also catches its own errors internally, so a failure in one
+ * alert's underlying query does not block or fail the others.
+ *
+ * @auth Requires either:
+ *   - `Authorization: Bearer <admin-scoped API key>`, or
+ *   - `X-Cron-Secret: <CRON_SECRET>` header matching the server's
+ *     configured cron secret.
+ *   See `requireAlertAuth`.
+ *
+ * @body None.
+ *
+ * @returns {200} JSON body:
+ *   ```
+ *   {
+ *     success: true,
+ *     timestamp: string,      // ISO timestamp of when the check ran
+ *     duration_ms: number,    // wall-clock time for the whole check
+ *     firing: AlertResult[],  // only alerts currently in 'firing' status
+ *     all: AlertResult[],     // every evaluated alert, firing or not
+ *     summary: { total: number, firing: number, ok: number }
+ *   }
+ *   ```
+ *   Where `AlertResult` is:
+ *   ```
+ *   {
+ *     alert: string,
+ *     severity: 'critical' | 'warning',
+ *     status: 'firing' | 'ok',
+ *     message: string,
+ *     value?: number,
+ *     threshold?: number,
+ *     lastChecked: string // ISO timestamp
+ *   }
+ *   ```
+ *
+ * @errors
+ *   - 401 `{ error: 'Unauthorized' }` — missing/invalid Bearer key and
+ *     missing/invalid `X-Cron-Secret`.
+ *   - 500 `{ error: 'Alert check failed' }` — unexpected exception outside
+ *     the individual alert evaluators (e.g. `Promise.allSettled` setup
+ *     itself throwing). Individual evaluator failures do NOT produce this
+ *     error; they instead surface as an `ok`-status alert with the error
+ *     message embedded.
+ */
 alertCheckRoutes.post('/admin/cron/check-alerts', requireAlertAuth, async (c) => {
   const startTime = Date.now()
 
