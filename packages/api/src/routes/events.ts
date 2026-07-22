@@ -19,8 +19,29 @@ const DEFAULT_SUMMARY_WINDOW_DAYS = 30
 export const eventRoutes = new Hono()
 
 /**
- * Receive a usage event from the SDK.
- * Stores raw events in the usage_events table for later aggregation.
+ * POST /events
+ *
+ * Receive a usage event from the SDK and store it in the `usage_events`
+ * table for later aggregation (billing analytics).
+ *
+ * Auth: requires a valid API key (`requireApiKey`). The event is
+ * attributed to the tenant tied to the API key.
+ *
+ * Input (JSON body, validated against `trackEventSchema`):
+ * - `metric` (string, 1-100 chars, required) — name of the metric being tracked
+ * - `value` (number, optional, default `1`) — amount to record for this event
+ * - `properties` (object, optional, default `{}`) — arbitrary metadata for the event
+ *
+ * Response: `202 Accepted`
+ * ```
+ * { "success": true }
+ * ```
+ *
+ * Errors:
+ * - `401` — missing/invalid/expired API key (from `requireApiKey`)
+ * - `403` — API key disabled or tenant inactive (from `requireApiKey`)
+ * - `400` — request body fails schema validation (from `zValidator`)
+ * - `5xx` — Supabase error while inserting the event (via `supabaseError`)
  */
 eventRoutes.post('/events', requireApiKey, zValidator('json', trackEventSchema), async (c) => {
   const body = c.req.valid('json')
@@ -44,8 +65,31 @@ eventRoutes.post('/events', requireApiKey, zValidator('json', trackEventSchema),
 })
 
 /**
- * Get usage summary for the current tenant.
- * Aggregates usage_events within the given time window.
+ * GET /events/summary
+ *
+ * Return an aggregated usage summary for the current tenant, totaling
+ * `usage_events` values per metric over a time window.
+ *
+ * Auth: requires a valid API key (`requireApiKey`). Scoped to the
+ * tenant tied to the API key.
+ *
+ * Input (query params):
+ * - `metric` (string, optional) — filter to a single metric name
+ * - `since` (ISO date string, optional, default: now minus
+ *   `DEFAULT_SUMMARY_WINDOW_DAYS` = 30 days) — start of the window
+ *
+ * Response: `200 OK`
+ * ```
+ * {
+ *   "summary": [{ "metric": string, "total": number }, ...], // sorted desc by total
+ *   "since": string // ISO date used for the window start
+ * }
+ * ```
+ *
+ * Errors:
+ * - `401` — missing/invalid/expired API key (from `requireApiKey`)
+ * - `403` — API key disabled or tenant inactive (from `requireApiKey`)
+ * - `5xx` — Supabase error while querying events (via `supabaseError`)
  */
 eventRoutes.get('/events/summary', requireApiKey, async (c) => {
   const apiKey = c.get('apiKey')
