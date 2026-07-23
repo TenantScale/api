@@ -12,8 +12,8 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import { getPlanLimit, hasPlanFeature } from '../lib/plan-store'
-import type { ApiKeyContext } from '../env'
+import { getPlanLimit, hasPlanFeature } from '../lib/plan-store.js'
+import type { ApiKeyContext } from '../env.js'
 
 // ── Types ──
 

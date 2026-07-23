@@ -19,7 +19,7 @@ import {
   trackEventSchema,
   createPortalApiKeySchema,
   ssrfUrlCheck,
-} from '../routes/schemas'
+} from '../routes/schemas.js'
 
 // ════════════════════════════════════════════════════════════════
 // Helpers

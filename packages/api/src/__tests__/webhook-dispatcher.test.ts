@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { dispatchWebhook } from '../lib/webhook-dispatcher'
+import { dispatchWebhook } from '../lib/webhook-dispatcher.js'
 
 // ── Mock Supabase ──
 const { mockSupabase } = vi.hoisted(() => ({

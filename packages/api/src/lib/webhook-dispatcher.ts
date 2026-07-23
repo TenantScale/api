@@ -3,9 +3,9 @@
 // ──────────────────────────────────────────────────────
 
 import { createHash, createHmac } from 'node:crypto'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
-import { validateWebhookUrl } from './ssrf'
+import { supabase } from '../db/supabase.js'
+import { logger } from '../lib/logger.js'
+import { validateWebhookUrl } from './ssrf.js'
 
 const RETRY_CONFIG = Object.freeze({ retries: 3, delays: [1_000, 4_000, 15_000] })
 

@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { createHash, randomBytes } from 'node:crypto'
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 import {
   inviteUserSchema,
   updateRoleSchema,
@@ -15,18 +15,18 @@ import {
   createPortalApiKeySchema,
   registerSchema,
   portalTenantCreateSchema,
-} from './schemas'
-import { requirePortalSession, requirePortalRole, getSession } from '../middleware/session-auth'
-import type { PortalSession } from '../middleware/session-auth'
-import { invalidatePlanCache } from '../lib/plan-store'
-import { dispatchWebhook } from '../lib/webhook-dispatcher'
-import { generateApiKey } from '../lib/api-key'
-import { getPaginationParams, paginationResponse } from '../lib/pagination'
-import { supabaseError } from '../lib/response'
-import { getClientIp } from '../lib/audit'
-import { logAuditEvent } from '../lib/audit'
-import { logger } from '../lib/logger'
-import { checkIpCreationLimit } from '../middleware/rate-limit'
+} from './schemas.js'
+import { requirePortalSession, requirePortalRole, getSession } from '../middleware/session-auth.js'
+import type { PortalSession } from '../middleware/session-auth.js'
+import { invalidatePlanCache } from '../lib/plan-store.js'
+import { dispatchWebhook } from '../lib/webhook-dispatcher.js'
+import { generateApiKey } from '../lib/api-key.js'
+import { getPaginationParams, paginationResponse } from '../lib/pagination.js'
+import { supabaseError } from '../lib/response.js'
+import { getClientIp } from '../lib/audit.js'
+import { logAuditEvent } from '../lib/audit.js'
+import { logger } from '../lib/logger.js'
+import { checkIpCreationLimit } from '../middleware/rate-limit.js'
 
 export const portalRoutes = new Hono()
 

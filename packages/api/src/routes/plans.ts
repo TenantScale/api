@@ -4,10 +4,10 @@
 
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { supabase } from '../db/supabase'
-import { updatePlanSchema } from './schemas'
-import { requireApiKey, requireScope } from '../middleware/auth'
-import { supabaseError } from '../lib/response'
+import { supabase } from '../db/supabase.js'
+import { updatePlanSchema } from './schemas.js'
+import { requireApiKey, requireScope } from '../middleware/auth.js'
+import { supabaseError } from '../lib/response.js'
 
 export const planRoutes = new Hono()
 

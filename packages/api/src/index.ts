@@ -4,8 +4,8 @@
 import 'dotenv/config'
 import { serve } from '@hono/node-server'
 import pino from 'pino'
-import app from './app'
-import { initSentry } from './lib/error-tracking'
+import app from './app.js'
+import { initSentry } from './lib/error-tracking.js'
 
 const port = parseInt(process.env.PORT ?? '3001')
 

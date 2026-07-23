@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 
 // ── Portal session type stored in Hono context ──
 

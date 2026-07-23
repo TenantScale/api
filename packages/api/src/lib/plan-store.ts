@@ -2,7 +2,7 @@
 // Plan store — cached plan resolution via Supabase
 // ──────────────────────────────────────────────────────
 
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 
 export interface PlanInfo {
   id: string

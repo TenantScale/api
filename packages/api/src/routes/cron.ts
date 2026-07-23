@@ -12,8 +12,8 @@
 import type { Context, Next } from 'hono'
 import { Hono } from 'hono'
 import { createHash } from 'node:crypto'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
+import { supabase } from '../db/supabase.js'
+import { logger } from '../lib/logger.js'
 
 export const cronRoutes = new Hono()
 

@@ -14,8 +14,8 @@
 // ──────────────────────────────────────────────────────
 
 import { Hono } from 'hono'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
+import { supabase } from '../db/supabase.js'
+import { logger } from '../lib/logger.js'
 
 export const alertCheckRoutes = new Hono()
 

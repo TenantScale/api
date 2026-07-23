@@ -7,7 +7,7 @@
 // ──────────────────────────────────────────────────────
 
 import Stripe from 'stripe'
-import { logger } from './logger'
+import { logger } from './logger.js'
 
 // ── Price ID configuration ──
 // Set these env vars to the price IDs created by setup-stripe-products.ts.

@@ -1,5 +1,5 @@
-import { supabase } from '../db/supabase'
-import { generateApiKey } from '../lib/api-key'
+import { supabase } from '../db/supabase.js'
+import { generateApiKey } from '../lib/api-key.js'
 
 const PLANS = [
   {
