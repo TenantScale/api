@@ -16,6 +16,7 @@ import {
   registerSchema,
   portalTenantCreateSchema,
 } from './schemas.js'
+import { getAdapter } from '../auth/index.js'
 import { requirePortalSession, requirePortalRole, getSession } from '../middleware/session-auth.js'
 import type { PortalSession } from '../middleware/session-auth.js'
 import { invalidatePlanCache } from '../lib/plan-store.js'
@@ -652,18 +653,16 @@ portalRoutes.post('/portal/register', zValidator('json', registerSchema), async 
     return c.json({ error: 'Organization slug is already taken' }, 409)
   }
 
-  // 2. Create the user via Supabase Auth
-  const { data: authUser, error: signUpError } = await supabase.auth.admin.createUser({
-    email: body.email,
-    password: body.password,
-    email_confirm: true,
-    user_metadata: { tenant_name: body.tenant_name },
-  })
-
-  if (signUpError) return c.json({ error: signUpError.message }, 400)
-  if (!authUser.user) return c.json({ error: 'Failed to create user' }, 500)
-
-  const userId = authUser.user.id
+  // 2. Create the user via the auth adapter
+  const auth = getAdapter()
+  let userId: string
+  try {
+    const user = await auth.createUser(body.email, body.password)
+    userId = user.id
+  } catch (signUpErr) {
+    const msg = signUpErr instanceof Error ? signUpErr.message : 'Failed to create user'
+    return c.json({ error: msg }, 400)
+  }
 
   try {
     // 3. Create the tenant
@@ -725,17 +724,14 @@ portalRoutes.post('/portal/register', zValidator('json', registerSchema), async 
     dispatchWebhook('tenant.created', tenant.id, { email: body.email, name: body.tenant_name })
 
     // 7. Sign the user in so they get a session
-    const { data: sessionData } = await supabase.auth.signInWithPassword({
-      email: body.email,
-      password: body.password,
-    })
+    const sessionResult = await auth.signIn(body.email, body.password)
 
     return c.json({
       success: true,
       user: { id: userId, email: body.email },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
       api_key: rawKey,
-      session: sessionData?.session ?? null,
+      session: sessionResult?.sessionToken ?? null,
     }, 201)
 
   } catch (err) {

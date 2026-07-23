@@ -28,6 +28,12 @@ export default function SettingsPage() {
   const [transferEmail, setTransferEmail] = useState('')
   const [transferring, setTransferring] = useState(false)
 
+  // SSO settings
+  const [ssoAvailable, setSsoAvailable] = useState(false)
+  const [ssoProviders, setSsoProviders] = useState<{ provider: string; name: string; available: boolean }[]>([])
+  const [enabledProviders, setEnabledProviders] = useState<string[]>([])
+  const [ssoSaving, setSsoSaving] = useState(false)
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -56,6 +62,46 @@ export default function SettingsPage() {
       console.error('[Settings] Failed to fetch:', err)
     }
     setLoading(false)
+    // Attempt to load SSO settings (non-critical — best effort)
+    fetchSsoSettings()
+  }
+
+  async function fetchSsoSettings() {
+    try {
+      const [providersRes, settingsRes] = await Promise.all([
+        fetch('/api/proxy/v1/portal/auth/providers'),
+        fetch('/api/proxy/v1/portal/auth/sso-settings'),
+      ])
+      if (providersRes.ok) {
+        const data = await providersRes.json()
+        setSsoAvailable(data.sso_enabled)
+        setSsoProviders(data.providers)
+      }
+      if (settingsRes.ok) {
+        const data = await settingsRes.json()
+        if (data.enabled_providers) setEnabledProviders(data.enabled_providers)
+      }
+    } catch {
+      // SSO settings are non-critical
+    }
+  }
+
+  async function handleSsoToggle(provider: string, enabled: boolean) {
+    const newProviders = enabled
+      ? [...enabledProviders, provider]
+      : enabledProviders.filter(p => p !== provider)
+    setEnabledProviders(newProviders)
+    setSsoSaving(true)
+    try {
+      await fetch('/api/proxy/v1/portal/auth/sso-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled_providers: newProviders }),
+      })
+    } catch {
+      setEnabledProviders(enabledProviders) // revert
+    }
+    setSsoSaving(false)
   }
 
   async function handleSaveSettings(e: React.FormEvent) {
@@ -214,6 +260,52 @@ export default function SettingsPage() {
             )}
           </form>
         </div>
+
+        {/* SSO / Social Login */}
+        {canManage && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur">
+            <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-500">
+              Single Sign-On (SSO)
+            </h3>
+            {ssoAvailable ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-400">
+                  Choose which social login providers appear on your tenant&apos;s sign-in page.
+                </p>
+                {ssoProviders.map(({ provider, name }) => (
+                  <label
+                    key={provider}
+                    className="flex items-center justify-between rounded-lg border border-gray-700 px-4 py-3 hover:bg-gray-800/50 cursor-pointer"
+                  >
+                    <span className="text-sm text-gray-300">{name}</span>
+                    <input
+                      type="checkbox"
+                      checked={enabledProviders.includes(provider)}
+                      onChange={(e) => handleSsoToggle(provider, e.target.checked)}
+                      disabled={ssoSaving}
+                      className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
+                ))}
+                {ssoSaving && (
+                  <p className="text-xs text-gray-500">Saving...</p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-gray-400">
+                  SSO is not available on your current plan.
+                </p>
+                <a
+                  href="/billing"
+                  className="mt-2 inline-block rounded-lg bg-gradient-to-r from-indigo-600 to-[#00E5D1] px-4 py-2 text-xs font-medium text-white hover:opacity-90"
+                >
+                  Upgrade to Pro
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Danger zone */}
         <div className="rounded-xl border border-red-900/50 bg-red-900/10 p-6 backdrop-blur">
