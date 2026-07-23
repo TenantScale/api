@@ -74,6 +74,7 @@ import { subscriptionRoutes } from './routes/subscriptions.js'
 import { statusRoutes } from './routes/status.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { ssoRoutes } from './routes/sso.js'
+import { billingRoutes } from './routes/billing.js'
 import { alertCheckRoutes } from './routes/alerts.js'
 
 const app = new Hono()
@@ -163,6 +164,7 @@ v1.route('/', subscriptionRoutes)
 v1.route('/', statusRoutes)
 v1.route('/', analyticsRoutes)
 v1.route('/', ssoRoutes)
+v1.route('/', billingRoutes)
 
 // ── 404 handler ──
 app.notFound((c) => c.json({ error: 'Not found' }, 404))

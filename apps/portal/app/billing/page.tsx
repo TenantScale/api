@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { formatDate, timeAgo } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import NavBar from '@/components/NavBar'
 import type { User } from '@supabase/supabase-js'
 
@@ -22,19 +22,31 @@ interface PlanTier {
   id: string
   name: string
   description?: string
-  price?: number
-  currency?: string
-  interval?: string
+  price_monthly?: number
   features?: Record<string, unknown>
+  max_users?: number | null
+  api_calls_per_day?: number | null
+}
+
+interface UsageData {
+  api_calls: number
+  active_users: number
+  plan_limits: { api_calls_per_day: number | null; max_users: number | null }
+  overage_rates: { per_call: number | null; per_user: number | null }
+  billing_period: { starts_at: string | null; ends_at: string | null; days_remaining: number | null }
+  projected_overage: { api_calls_overage: number; seat_overage: number; total: number }
 }
 
 export default function BillingPage() {
   const [user, setUser] = useState<User | null>(null)
   const [data, setData] = useState<PortalData | null>(null)
   const [plans, setPlans] = useState<PlanTier[]>([])
+  const [usage, setUsage] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [plansLoading, setPlansLoading] = useState(true)
+  const [usageLoading, setUsageLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [upgrading, setUpgrading] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -53,8 +65,10 @@ export default function BillingPage() {
     try {
       const res = await fetch('/api/proxy/v1/portal/me')
       if (res.ok) {
-        setData(await res.json())
+        const d = await res.json()
+        setData(d)
         fetchPlans()
+        fetchUsage()
       } else if (res.status === 403) {
         setError("You don't have access to any tenant. Ask your admin to add you.")
       } else {
@@ -72,26 +86,59 @@ export default function BillingPage() {
       const res = await fetch('/api/proxy/v1/plans')
       if (res.ok) {
         const body = await res.json()
-        // Handle both { plans: [...] } and direct array responses
         setPlans(Array.isArray(body) ? body : (body.plans ?? []))
       }
     } catch (err) {
       console.error('[Billing] Failed to fetch plans:', err)
-      // Plans are supplemental — don't surface an error for this
     }
     setPlansLoading(false)
   }
 
-  function formatPrice(price?: number, currency?: string, interval?: string) {
-    if (price === undefined || price === null) return ''
+  async function fetchUsage() {
+    setUsageLoading(true)
+    try {
+      const res = await fetch('/api/proxy/v1/portal/billing/usage')
+      if (res.ok) {
+        setUsage(await res.json())
+      }
+    } catch (err) {
+      console.error('[Billing] Failed to fetch usage:', err)
+    }
+    setUsageLoading(false)
+  }
+
+  async function handleUpgrade(planId: string, billingInterval: string = 'month') {
+    setUpgrading(planId)
+    try {
+      const res = await fetch('/api/proxy/v1/portal/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId, billing_interval: billingInterval }),
+      })
+      if (res.ok) {
+        const { url } = await res.json()
+        if (url) {
+          window.location.href = url
+          return
+        }
+      }
+      const body = await res.json()
+      setError(body.error ?? 'Failed to start checkout')
+    } catch {
+      setError('Failed to connect to billing service')
+    }
+    setUpgrading(null)
+  }
+
+  function formatPrice(cents?: number) {
+    if (cents === undefined || cents === null) return ''
     const fmt = new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency ?? 'USD',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })
-    const label = fmt.format(price)
-    return interval ? `${label}/${interval}` : label
+    return fmt.format(cents / 100)
   }
 
   if (loading) {
@@ -126,8 +173,18 @@ export default function BillingPage() {
   if (!data) return null
 
   const isFreePlan = data.tenant.plan === 'free' || data.tenant.plan_name?.toLowerCase() === 'free'
-  const userPercent = data.limits.max_users
-    ? Math.round((data.limits.current_users / data.limits.max_users) * 100)
+  const isOwner = data.user.role === 'owner'
+  const hasUsageDashboard = data.tenant.features?.usage_dashboard === true
+  const hasOverageApi = data.tenant.features?.overage_api_calls === true
+  const hasOverageSeats = data.tenant.features?.overage_seats === true
+
+  const dailyApiLimit = usage?.plan_limits.api_calls_per_day
+  const monthlyApiEstimate = dailyApiLimit ? dailyApiLimit * 30 : null
+  const apiPercent = dailyApiLimit
+    ? Math.min(100, Math.round((usage?.api_calls ?? 0) / (dailyApiLimit * 30) * 100))
+    : 0
+  const userPercent = usage?.plan_limits.max_users
+    ? Math.min(100, Math.round((usage?.active_users ?? 0) / usage.plan_limits.max_users * 100))
     : 0
 
   return (
@@ -138,7 +195,7 @@ export default function BillingPage() {
         {/* Page header */}
         <div>
           <h2 className="text-xl font-bold">Billing & Plan</h2>
-          <p className="text-sm text-gray-400 mt-1">Manage your subscription and view available plans</p>
+          <p className="text-sm text-gray-400 mt-1">Manage your subscription and view usage</p>
         </div>
 
         {/* Current plan card */}
@@ -152,22 +209,63 @@ export default function BillingPage() {
               )}
             </div>
             <span className="rounded-full bg-indigo-900/40 px-3 py-1 text-xs font-medium text-indigo-300">
-              Active
+              {isFreePlan ? 'Free' : 'Active'}
             </span>
           </div>
         </div>
 
-        {/* Usage & Limits */}
+        {/* Usage metrics */}
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* API calls */}
           <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 backdrop-blur">
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Users</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">API Calls</p>
+              {usageLoading && <span className="text-xs text-gray-500">...</span>}
+            </div>
             <p className="mt-2 text-xl font-semibold">
-              {data.limits.current_users}
-              {data.limits.max_users && (
-                <span className="text-sm font-normal text-gray-500"> / {data.limits.max_users}</span>
+              {usage?.api_calls?.toLocaleString() ?? '—'}
+              {monthlyApiEstimate && (
+                <span className="text-sm font-normal text-gray-500">
+                  {' '}/ {monthlyApiEstimate.toLocaleString()} /mo
+                </span>
               )}
             </p>
-            {data.limits.max_users && (
+            {monthlyApiEstimate && usage && (
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    apiPercent > 90 ? 'bg-red-500' : apiPercent > 70 ? 'bg-amber-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(apiPercent, 100)}%` }}
+                />
+              </div>
+            )}
+            {usage?.projected_overage.api_calls_overage ? (
+              <p className="mt-1 text-xs text-amber-400">
+                +${usage.projected_overage.api_calls_overage.toFixed(2)} overage projected
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                {dailyApiLimit ? `${dailyApiLimit.toLocaleString()} calls/day limit` : 'Unlimited'}
+              </p>
+            )}
+          </div>
+
+          {/* Active users */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Active Users</p>
+              {usageLoading && <span className="text-xs text-gray-500">...</span>}
+            </div>
+            <p className="mt-2 text-xl font-semibold">
+              {usage?.active_users ?? data.limits.current_users}
+              {usage?.plan_limits.max_users && (
+                <span className="text-sm font-normal text-gray-500">
+                  {' '}/ {usage.plan_limits.max_users}
+                </span>
+              )}
+            </p>
+            {usage?.plan_limits.max_users && (
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
                 <div
                   className={`h-full rounded-full transition-all ${
@@ -177,23 +275,61 @@ export default function BillingPage() {
                 />
               </div>
             )}
-            {!data.limits.max_users && (
-              <p className="mt-1 text-xs text-gray-500">Unlimited users</p>
+            {usage?.projected_overage.seat_overage ? (
+              <p className="mt-1 text-xs text-amber-400">
+                +${usage.projected_overage.seat_overage.toFixed(2)} overage projected
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                {usage?.plan_limits.max_users ? `${usage.plan_limits.max_users} max` : 'Unlimited'}
+              </p>
             )}
           </div>
-
-          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 backdrop-blur">
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Created</p>
-            <p className="mt-2 text-xl font-semibold">{formatDate(data.tenant.created_at)}</p>
-          </div>
         </div>
+
+        {/* Billing period */}
+        {usage?.billing_period.ends_at && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 backdrop-blur">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">
+                Current billing period:{' '}
+                {usage.billing_period.starts_at ? formatDate(usage.billing_period.starts_at) : '—'}
+                {' → '}
+                {formatDate(usage.billing_period.ends_at)}
+              </span>
+              {usage.billing_period.days_remaining !== null && (
+                <span className="text-gray-500">
+                  {usage.billing_period.days_remaining} days remaining
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Overage summary */}
+        {usage?.projected_overage.total ? (
+          <div className="rounded-xl border border-amber-900/50 bg-amber-900/10 p-5 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-amber-300">Projected overage this period</span>
+              <span className="text-lg font-bold text-amber-300">
+                +${usage.projected_overage.total.toFixed(2)}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-amber-400/70">
+              API overage: ${usage.projected_overage.api_calls_overage.toFixed(2)}
+              {usage.projected_overage.seat_overage > 0 && (
+                <> · Seat overage: ${usage.projected_overage.seat_overage.toFixed(2)}</>
+              )}
+            </p>
+          </div>
+        ) : null}
 
         {/* Feature flags */}
         {Object.keys(data.tenant.features).length > 0 && (
           <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur">
             <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-500">Plan Features</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(data.tenant.features).map(([key, value]) => (
+              {Object.entries(data.tenant.features).filter(([k]) => !k.startsWith('overage_')).map(([key, value]) => (
                 <div key={key} className="flex items-center gap-2 text-sm">
                   {value ? (
                     <svg className="h-4 w-4 flex-shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,7 +349,7 @@ export default function BillingPage() {
           </div>
         )}
 
-        {/* View plans — all available tiers */}
+        {/* Available plans */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-500">Available Plans</h3>
 
@@ -229,6 +365,7 @@ export default function BillingPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => {
                 const isCurrent = plan.id === data.tenant.plan || plan.name === data.tenant.plan_name
+                const upgradeTo = isCurrent ? null : plan.id
                 return (
                   <div
                     key={plan.id}
@@ -248,49 +385,36 @@ export default function BillingPage() {
                       <p className="mt-1 text-sm text-gray-400">{plan.description}</p>
                     )}
                     <p className="mt-3 text-2xl font-bold">
-                      {formatPrice(plan.price, plan.currency, plan.interval) || (
+                      {plan.price_monthly ? (
+                        <>{formatPrice(plan.price_monthly)}<span className="text-base font-normal text-gray-500">/mo</span></>
+                      ) : (
                         <span className="text-base font-normal text-gray-500">Contact us</span>
                       )}
                     </p>
 
-                    {plan.features && Object.keys(plan.features).length > 0 && (
-                      <ul className="mt-4 space-y-1.5">
-                        {Object.entries(plan.features).map(([k, v]) => (
-                          <li key={k} className="flex items-center gap-1.5 text-xs text-gray-400">
-                            {v ? (
-                              <svg className="h-3 w-3 flex-shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <svg className="h-3 w-3 flex-shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
-                            {k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                          </li>
-                        ))}
-                      </ul>
+                    {plan.max_users && (
+                      <p className="mt-2 text-xs text-gray-500">Up to {plan.max_users} users</p>
+                    )}
+                    {plan.api_calls_per_day && (
+                      <p className="text-xs text-gray-500">{plan.api_calls_per_day.toLocaleString()} API calls/day</p>
                     )}
 
-                    {!isCurrent && (
+                    {!isCurrent && upgradeTo && isOwner && (
                       <div className="mt-4">
-                        {isFreePlan ? (
-                          <button
-                            disabled
-                            title="Upgrade to Pro — Coming in Phase 2"
-                            className="w-full rounded-lg bg-gradient-to-r from-indigo-600/50 to-[#00E5D1]/50 px-4 py-2 text-sm font-medium text-white/50 cursor-not-allowed"
-                          >
-                            Upgrade to Pro — Coming in Phase 2
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="w-full rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
-                          >
-                            Contact Sales
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleUpgrade(upgradeTo)}
+                          disabled={upgrading === upgradeTo}
+                          className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-[#00E5D1] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          {upgrading === upgradeTo ? 'Redirecting...' : 'Upgrade'}
+                        </button>
                       </div>
+                    )}
+
+                    {!isCurrent && !isOwner && (
+                      <p className="mt-4 text-xs text-gray-500 text-center">
+                        Contact your tenant owner to upgrade
+                      </p>
                     )}
                   </div>
                 )
@@ -299,20 +423,31 @@ export default function BillingPage() {
           )}
         </div>
 
-        {/* Stripe Bridge placeholder */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium uppercase tracking-wider text-gray-500">Payment Method</h3>
-              <p className="mt-1 text-sm text-gray-400">
-                Stripe Bridge integration is coming soon. You'll be able to manage your payment method and invoices here.
-              </p>
+        {/* Stripe billing portal */}
+        {!isFreePlan && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium uppercase tracking-wider text-gray-500">Payment & Invoices</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  Manage your payment method, view invoices, and update billing info.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  const res = await fetch('/api/proxy/v1/portal/billing-portal', { method: 'POST' })
+                  if (res.ok) {
+                    const { url } = await res.json()
+                    if (url) window.location.href = url
+                  }
+                }}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Manage Billing
+              </button>
             </div>
-            <span className="rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300">
-              Phase 2
-            </span>
           </div>
-        </div>
+        )}
       </main>
     </div>
   )
