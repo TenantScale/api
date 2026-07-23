@@ -10,6 +10,14 @@ updates:
     commit-message:
       prefix: "deps"
       prefix-development: "deps(dev)"
+    groups:
+      patch-and-minor:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -17,3 +25,7 @@ updates:
       interval: "weekly"
     labels:
       - "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
