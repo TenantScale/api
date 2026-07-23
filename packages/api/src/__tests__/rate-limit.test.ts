@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { Hono } from 'hono'
-import { createDdosGuard, createPlanRateLimiter } from '../middleware/rate-limit'
+import { createDdosGuard, createPlanRateLimiter } from '../middleware/rate-limit.js'
 
 // Hono Variables type so c.set/c.get('apiKey') are recognized
 type Variables = {

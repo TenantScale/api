@@ -3,9 +3,9 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import type { ApiKeyContext } from '../env'
-import { supabase } from '../db/supabase'
-import { hashApiKey } from '../lib/api-key'
+import type { ApiKeyContext } from '../env.js'
+import { supabase } from '../db/supabase.js'
+import { hashApiKey } from '../lib/api-key.js'
 
 /**
  * Hono middleware that validates Authorization: Bearer <token>

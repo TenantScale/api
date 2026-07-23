@@ -9,7 +9,7 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context, Next } from 'hono'
-import metrics, { collectMetrics } from '../lib/metrics'
+import metrics, { collectMetrics } from '../lib/metrics.js'
 
 /**
  * Hono middleware that records request count, latency, and status.

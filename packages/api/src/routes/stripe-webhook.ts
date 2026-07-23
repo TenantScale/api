@@ -14,11 +14,11 @@
 // ──────────────────────────────────────────────────────
 
 import { Hono } from 'hono'
-import { logger } from '../lib/logger'
-import { constructWebhookEvent, resolvePlanFromPrice, mapSubscriptionStatus, stripe } from '../lib/stripe'
-import { supabase } from '../db/supabase'
-import { invalidatePlanCache } from '../lib/plan-store'
-import { logAuditEvent } from '../lib/audit'
+import { logger } from '../lib/logger.js'
+import { constructWebhookEvent, resolvePlanFromPrice, mapSubscriptionStatus, stripe } from '../lib/stripe.js'
+import { supabase } from '../db/supabase.js'
+import { invalidatePlanCache } from '../lib/plan-store.js'
+import { logAuditEvent } from '../lib/audit.js'
 
 export const stripeWebhookRoutes = new Hono()
 

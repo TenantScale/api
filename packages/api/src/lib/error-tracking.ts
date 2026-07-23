@@ -6,7 +6,7 @@
 //   - @sentry/node is not installed
 // ──────────────────────────────────────────────────────
 
-import { logger } from './logger'
+import { logger } from './logger.js'
 
 let sentryEnabled = false
 

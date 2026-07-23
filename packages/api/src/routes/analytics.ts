@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
-import { supabase } from '../db/supabase'
-import { requireApiKey } from '../middleware/auth'
-import { requirePortalSession, getSession } from '../middleware/session-auth'
-import type { PortalSession } from '../middleware/session-auth'
-import { supabaseError } from '../lib/response'
-import { logger } from '../lib/logger'
+import { supabase } from '../db/supabase.js'
+import { requireApiKey } from '../middleware/auth.js'
+import { requirePortalSession, getSession } from '../middleware/session-auth.js'
+import type { PortalSession } from '../middleware/session-auth.js'
+import { supabaseError } from '../lib/response.js'
+import { logger } from '../lib/logger.js'
 
 export const analyticsRoutes = new Hono()
 

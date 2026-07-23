@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import { describe, it, expect, vi } from 'vitest'
-import { supabaseError } from '../lib/response'
+import { supabaseError } from '../lib/response.js'
 
 /**
  * Factory to create a mock Hono context with a spied `json` method.

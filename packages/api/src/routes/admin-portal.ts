@@ -5,10 +5,10 @@
 // ──────────────────────────────────────────────────────
 
 import { Hono } from 'hono'
-import { createAdminRouter } from '../lib/shared-admin'
-import type { AdminActor } from '../lib/shared-admin'
-import { requirePortalSession, requireSuperAdmin, getSession } from '../middleware/session-auth'
-import type { PortalSession } from '../middleware/session-auth'
+import { createAdminRouter } from '../lib/shared-admin.js'
+import type { AdminActor } from '../lib/shared-admin.js'
+import { requirePortalSession, requireSuperAdmin, getSession } from '../middleware/session-auth.js'
+import type { PortalSession } from '../middleware/session-auth.js'
 
 export const adminPortalRoutes = new Hono()
 

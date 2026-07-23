@@ -4,11 +4,11 @@
 
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { supabase } from '../db/supabase'
-import { createAuditEventSchema } from './schemas'
-import { requireApiKey } from '../middleware/auth'
-import { getPaginationParams, paginationResponse } from '../lib/pagination'
-import { supabaseError } from '../lib/response'
+import { supabase } from '../db/supabase.js'
+import { createAuditEventSchema } from './schemas.js'
+import { requireApiKey } from '../middleware/auth.js'
+import { getPaginationParams, paginationResponse } from '../lib/pagination.js'
+import { supabaseError } from '../lib/response.js'
 
 export const auditRoutes = new Hono()
 

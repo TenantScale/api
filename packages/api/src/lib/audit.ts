@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import type { Context } from 'hono'
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 
 /** Audit event input shape */
 export interface AuditEventInput {

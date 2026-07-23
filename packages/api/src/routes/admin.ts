@@ -6,12 +6,12 @@
 
 import { Hono } from 'hono'
 import { createHash } from 'node:crypto'
-import { supabase } from '../db/supabase'
-import { createAdminRouter } from '../lib/shared-admin'
-import type { AdminActor } from '../lib/shared-admin'
-import { requireApiKey, requireScope } from '../middleware/auth'
-import type { ApiKeyContext } from '../env'
-import { createDdosGuard } from '../middleware/rate-limit'
+import { supabase } from '../db/supabase.js'
+import { createAdminRouter } from '../lib/shared-admin.js'
+import type { AdminActor } from '../lib/shared-admin.js'
+import { requireApiKey, requireScope } from '../middleware/auth.js'
+import type { ApiKeyContext } from '../env.js'
+import { createDdosGuard } from '../middleware/rate-limit.js'
 
 export const adminRoutes = new Hono()
 

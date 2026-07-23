@@ -9,19 +9,19 @@ import { Hono } from 'hono'
 import type { MiddlewareHandler, Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { createHash, randomBytes } from 'node:crypto'
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 import {
   createTenantSchema,
   updateTenantSchema,
   createApiKeySchema,
   updatePlanSchema,
   createImpersonationSchema,
-} from '../routes/schemas'
-import { generateApiKey } from '../lib/api-key'
-import { getPaginationParams, paginationResponse } from '../lib/pagination'
-import { supabaseError } from '../lib/response'
-import { logAuditEvent } from '../lib/audit'
-import { dispatchWebhook } from '../lib/webhook-dispatcher'
+} from '../routes/schemas.js'
+import { generateApiKey } from '../lib/api-key.js'
+import { getPaginationParams, paginationResponse } from '../lib/pagination.js'
+import { supabaseError } from '../lib/response.js'
+import { logAuditEvent } from '../lib/audit.js'
+import { dispatchWebhook } from '../lib/webhook-dispatcher.js'
 
 // ──────────────────────────────────────────────────────
 // Types

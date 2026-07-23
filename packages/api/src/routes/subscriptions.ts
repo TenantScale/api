@@ -18,12 +18,12 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { requirePortalSession, requirePortalRole, getSession } from '../middleware/session-auth'
-import type { PortalSession } from '../middleware/session-auth'
-import { createCheckoutSession, createBillingPortalSession } from '../lib/stripe'
-import { getPriceId } from '../lib/stripe'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
+import { requirePortalSession, requirePortalRole, getSession } from '../middleware/session-auth.js'
+import type { PortalSession } from '../middleware/session-auth.js'
+import { createCheckoutSession, createBillingPortalSession } from '../lib/stripe.js'
+import { getPriceId } from '../lib/stripe.js'
+import { supabase } from '../db/supabase.js'
+import { logger } from '../lib/logger.js'
 
 export const subscriptionRoutes = new Hono()
 

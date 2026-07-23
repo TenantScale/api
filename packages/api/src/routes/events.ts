@@ -8,11 +8,11 @@
 
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { supabase } from '../db/supabase'
-import { trackEventSchema } from './schemas'
-import { requireApiKey } from '../middleware/auth'
-import { supabaseError } from '../lib/response'
-import { logger } from '../lib/logger'
+import { supabase } from '../db/supabase.js'
+import { trackEventSchema } from './schemas.js'
+import { requireApiKey } from '../middleware/auth.js'
+import { supabaseError } from '../lib/response.js'
+import { logger } from '../lib/logger.js'
 
 const DEFAULT_SUMMARY_WINDOW_DAYS = 30
 

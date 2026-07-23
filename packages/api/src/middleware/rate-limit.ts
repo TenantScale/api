@@ -15,8 +15,8 @@
 
 import type { Context, Next } from 'hono'
 import { createHash } from 'node:crypto'
-import { supabase } from '../db/supabase'
-import { logger } from '../lib/logger'
+import { supabase } from '../db/supabase.js'
+import { logger } from '../lib/logger.js'
 
 // ── Interval registry ──
 // Tracks all created cleanup intervals so they can be cleared on demand

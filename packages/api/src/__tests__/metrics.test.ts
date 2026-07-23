@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import metrics, { collectMetrics, resetMetrics } from '../lib/metrics'
+import metrics, { collectMetrics, resetMetrics } from '../lib/metrics.js'
 
 describe('Prometheus metrics registry', () => {
   beforeEach(() => {
