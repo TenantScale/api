@@ -180,3 +180,13 @@ export const createPortalApiKeySchema = z.object({
   label: z.string().min(1).max(100),
   scopes: z.array(z.string()).default(['read']),
 })
+
+// ════════════════════════════════════════════════════════════════
+// SSO / Social Login
+// ════════════════════════════════════════════════════════════════
+
+export const updateSsoSettingsSchema = z.object({
+  enabled_providers: z.array(z.enum(['google', 'github', 'azure', 'discord', 'gitlab'])).default([]),
+})
+
+export type UpdateSsoSettingsInput = z.infer<typeof updateSsoSettingsSchema>

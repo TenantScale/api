@@ -1,8 +1,11 @@
 // ──────────────────────────────────────────────────────
-// Session auth middleware — validates portal sessions via Supabase
+// Session auth middleware — validates portal sessions via AuthAdapter
 // ──────────────────────────────────────────────────────
+// No longer hardcodes Supabase — uses the configured AuthAdapter
+// (supabase, jwt, etc.) from AUTH_ADAPTER env var.
 
 import type { Context, Next } from 'hono'
+import { getAdapter } from '../auth/index.js'
 import { supabase } from '../db/supabase.js'
 
 // ── Portal session type stored in Hono context ──
@@ -23,8 +26,9 @@ export interface PortalSession {
 /**
  * Hono middleware that validates a portal session JWT.
  *
- * Reads Authorization: Bearer <token>, validates the session
- * via Supabase Auth, and attaches the resolved portal session to context.
+ * Reads Authorization: Bearer *** validates the session
+ * via the configured AuthAdapter, and attaches the resolved
+ * portal session to Hono context.
  */
 export async function requirePortalSession(c: Context, next: Next) {
   const authHeader = c.req.header('Authorization')
@@ -39,17 +43,18 @@ export async function requirePortalSession(c: Context, next: Next) {
   }
 
   try {
-    // Validate the JWT via Supabase Auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
-
-    if (authError || !user) {
+    // Validate the JWT via the configured auth adapter
+    const auth = getAdapter()
+    const user = await auth.validateSession(jwt)
+    if (!user) {
       return c.json({ error: 'Invalid or expired session' }, 401)
     }
 
     const userId = user.id
-    const email = user.email ?? ''
+    const email = user.email
 
-    // Check if user is a platform admin (super admin)
+    // Check if user is a platform admin (super admin) — uses Supabase directly
+    // because platform_admins is our own table, not an auth provider feature
     const { data: platformAdmin } = await supabase
       .from('platform_admins')
       .select('id')
