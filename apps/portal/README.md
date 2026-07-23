@@ -6,6 +6,9 @@ This is the Next.js portal that lets your tenants manage their account —
 view API keys, browse audit logs, manage team members, configure webhooks,
 and handle billing.
 
+> 📖 **Full documentation:** [tenantscale-docs.vercel.app](https://tenantscale-docs.vercel.app)
+> 🌐 **Website & pricing:** [tenantscale.com](https://tenantscale.com)
+
 > **License:** Business Source License 1.1 (BSL) — free to use and modify.
 > Becomes MIT on 2029-06-01. See [LICENSE](LICENSE) for full terms.
 
