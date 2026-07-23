@@ -11,7 +11,7 @@ async function main() {
   console.log('Building Vercel bundle...')
 
   const result = await esbuild.build({
-    entryPoints: ['api/index.ts'],
+    entryPoints: ['src/app.ts'],
     bundle: true,
     outfile: 'api/bundle.js',
     platform: 'node',
@@ -22,6 +22,7 @@ async function main() {
     logLevel: 'info',
     // These are external because they come from npm in the serverless environment
     external: [
+      '@hono/zod-validator',
       '@sentry/node',
       '@supabase/supabase-js',
       '@tenantscale/sdk',
@@ -32,8 +33,6 @@ async function main() {
       'stripe',
       'zod',
     ],
-    // pino uses worker_threads internally - bundle to avoid runtime issues
-    packages: 'external',
     treeShaking: true,
   })
 
