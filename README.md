@@ -4,6 +4,9 @@
 
 This is the Hono-based API server that provides the management plane for TenantScale. It works alongside the open-source [SDK](https://github.com/TenantScale/sdk) to give you a full multi-tenant platform.
 
+> 📖 **Full documentation:** [tenantscale-docs.vercel.app](https://tenantscale-docs.vercel.app) — guides, API reference, adapter setup, CLI, and self-hosting.
+> 🌐 **Website:** [tenantscale.com](https://tenantscale.com) — pricing, cloud dashboard, and managed hosting.
+
 ## 🔑 License
 
 **BSL 1.1** — source available. Free to self-host in production as long as you don't compete with TenantScale's hosted service. Converts to Apache 2.0 on 2029-01-01.
@@ -126,6 +129,8 @@ CRON_SECRET=                    # Alert check endpoint auth
 |------|---------|-------------|
 | [TenantScale/sdk](https://github.com/TenantScale/sdk) | **MIT** | Core SDK, framework adapters, CLI, React hooks, MCP server |
 | [TenantScale/portal](https://github.com/TenantScale/portal) | **Proprietary** | Customer-facing Next.js portal (dashboard, API keys, audit, billing) |
+| [TenantScale/docs](https://github.com/TenantScale/docs) | **MIT** | VitePress documentation site — guides, API ref, CLI, self-hosting |
+| [TenantScale/landing](https://github.com/TenantScale/landing) | **MIT** | Marketing landing page with pricing, features, and cloud sign-up |
 
 ## 📄 License
 
