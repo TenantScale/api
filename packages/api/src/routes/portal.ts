@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { supabase } from '../db/supabase.js'
 import {
   inviteUserSchema,

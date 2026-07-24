@@ -137,7 +137,9 @@ export function createAdminRouter(opts: AdminRouteOptions): Hono {
       .range(offset, offset + limit - 1)
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,slug.ilike.%${search}%`)
+      // Escape ILIKE special characters to prevent SQL injection via .or()
+      const sanitized = search.replace(/[%_]/g, '\\$&')
+      query = query.or(`name.ilike.%${sanitized}%,slug.ilike.%${sanitized}%`, { foreignTable: undefined })
     }
 
     const { data: tenants, error, count } = await query
