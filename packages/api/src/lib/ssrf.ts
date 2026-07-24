@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────────────
 
 import { lookup } from 'node:dns/promises'
+import type { LookupAddress } from 'node:dns'
 
 // Private/reserved IPv4 CIDR ranges
 const PRIVATE_RANGES = [
@@ -75,8 +76,8 @@ export async function validateWebhookUrl(urlStr: string): Promise<URL> {
   }
 
   try {
-    const addresses = await lookup(hostname)
-    const ips = Array.isArray(addresses) ? addresses.map(a => (a as any).address) : [(addresses as any).address]
+    const addresses: LookupAddress | LookupAddress[] = await lookup(hostname)
+    const ips = Array.isArray(addresses) ? addresses.map(a => a.address) : [addresses.address]
     for (const ip of ips) {
       if (isPrivateIp(ip)) {
         throw new Error(`Blocked private/resolved IP for ${hostname}: ${ip}`)

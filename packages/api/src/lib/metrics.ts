@@ -8,7 +8,9 @@
 
 import type { Context } from 'hono'
 
-// ── Metric interfaces ──
+// ── Metric interfaces — unified collect + reset support ──
+interface Collectable { collect(): string }
+interface Resettable { reset(): void }
 interface Counter { inc(labels?: Record<string, string>): void }
 interface Histogram { observe(value: number, labels?: Record<string, string>): void }
 interface Gauge { set(value: number, labels?: Record<string, string>): void }
@@ -214,8 +216,8 @@ const metrics = {
 export function collectMetrics(): string {
   let output = ''
   for (const m of Object.values(metrics)) {
-    if (typeof (m as any).collect === 'function') {
-      output += (m as any).collect() + '\n'
+    if (typeof (m as unknown as Collectable).collect === 'function') {
+      output += (m as unknown as Collectable).collect() + '\n'
     }
   }
   return output
@@ -224,7 +226,7 @@ export function collectMetrics(): string {
 /** Reset all metrics (for testing) */
 export function resetMetrics(): void {
   for (const m of Object.values(metrics)) {
-    if (typeof (m as any).reset === 'function') (m as any).reset()
+    if (typeof (m as unknown as Resettable).reset === 'function') (m as unknown as Resettable).reset()
   }
 }
 

@@ -2,7 +2,7 @@
 // Response helpers — reduces boilerplate error handling
 // ──────────────────────────────────────────────────────
 
-import type { Context } from 'hono'
+import type { Context, StatusCode } from 'hono'
 
 /** Standard error response envelope used across all endpoints */
 export interface ApiError {
@@ -42,5 +42,5 @@ export function supabaseError(
   defaultCode = 'DB_ERROR',
 ): Response | Promise<Response> {
   const status = error?.code ? POSTGRES_ERROR_CODES[error.code] ?? 500 : 500
-  return c.json({ error: error?.message ?? 'Unknown error', code: error?.code ?? defaultCode }, status as any)
+  return c.json({ error: error?.message ?? 'Unknown error', code: error?.code ?? defaultCode }, status as StatusCode)
 }

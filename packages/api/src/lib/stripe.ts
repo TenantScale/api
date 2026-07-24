@@ -253,7 +253,7 @@ export function constructWebhookEvent(
  * Map a Stripe subscription status to our DB enum.
  */
 export function mapSubscriptionStatus(
-  stripeStatus: Stripe.Subscription.Status,
+  stripeStatus: string,
 ): 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'paused' {
   // Stripe's possible values: active | past_due | unpaid | canceled | incomplete | incomplete_expired | trialing | paused
   switch (stripeStatus) {
