@@ -265,7 +265,7 @@ async function handleSubscriptionUpdated(subscription: StripeSubscription) {
     return
   }
 
-  const newStatus = mapSubscriptionStatus(subscription.status as any)
+  const newStatus = mapSubscriptionStatus(subscription.status)
 
   // Check if tenant_id is in subscription metadata (set at creation)
   let tenantId = subscription.metadata?.tenant_id
