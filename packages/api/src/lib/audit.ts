@@ -4,6 +4,7 @@
 
 import type { Context } from 'hono'
 import { supabase } from '../db/supabase.js'
+import { logger } from './logger.js'
 
 /** Audit event input shape */
 export interface AuditEventInput {
@@ -50,6 +51,6 @@ export async function logAuditEvent(input: AuditEventInput): Promise<void> {
     user_agent: input.user_agent ?? null,
   })
   if (error) {
-    console.error('[Audit] Failed to log audit event:', error)
+    logger.error({ error, input: { tenant_id: input.tenant_id, action: input.action } }, '[Audit] Failed to log audit event')
   }
 }

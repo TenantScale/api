@@ -105,11 +105,11 @@ export const createAuditEventSchema = z.object({
 
 export const inviteUserSchema = z.object({
   email: z.string().email(),
-  role: z.string().min(1, 'Role is required').default('member'),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
 })
 
 export const updateRoleSchema = z.object({
-  role: z.string().min(1, 'Role is required'),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']),
 })
 
 export const transferOwnershipSchema = z.object({

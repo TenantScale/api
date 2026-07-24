@@ -732,9 +732,9 @@ describe('updateRoleSchema', () => {
     expect(result.role).toBe('admin')
   })
 
-  it('parses single character role', () => {
-    const result = updateRoleSchema.parse({ role: 'a' })
-    expect(result.role).toBe('a')
+  it('parses valid role', () => {
+    const result = updateRoleSchema.parse({ role: 'admin' })
+    expect(result.role).toBe('admin')
   })
 
   // ── Unhappy Path ──

@@ -47,6 +47,7 @@ const KEY_CACHE_TTL_MS = 5 * 60 * 1000
 interface KeyCacheEntry {
   tenant_id: string
   plan_id: string
+  daily_limit?: number | null
   fetchedAt: number
 }
 const keyCache = new Map<string, KeyCacheEntry>()
@@ -267,7 +268,7 @@ export function createPlanRateLimiter() {
       const planCacheKey = `plan:${effectivePlanId}`
       const planCached = keyCache.get(planCacheKey)
       if (planCached && Date.now() - planCached.fetchedAt < KEY_CACHE_TTL_MS) {
-        dailyLimit = planCached.plan_id as unknown as number ?? null  // Stored in plan_id field as hack — cleaner with separate cache
+        dailyLimit = planCached.daily_limit ?? null
       }
     }
 
@@ -283,7 +284,8 @@ export function createPlanRateLimiter() {
         if (dailyLimit !== null) {
           keyCache.set(`plan:${effectivePlanId}`, {
             tenant_id: '',
-            plan_id: String(dailyLimit),
+            plan_id: effectivePlanId,
+            daily_limit: dailyLimit,
             fetchedAt: Date.now(),
           })
         }

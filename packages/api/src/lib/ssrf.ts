@@ -82,8 +82,10 @@ export async function validateWebhookUrl(urlStr: string): Promise<URL> {
         throw new Error(`Blocked private/resolved IP for ${hostname}: ${ip}`)
       }
     }
-  } catch {
-    // DNS failure could be transient — allow through
+  } catch (dnsErr) {
+    // DNS resolution failed — can't validate the target IP.
+    // Block to be safe rather than allowing through unvalidated.
+    throw new Error(`Failed to resolve ${hostname}: DNS resolution error — blocked for safety`)
   }
 
   return url
