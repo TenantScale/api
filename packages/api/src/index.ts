@@ -3,13 +3,14 @@
 // ──────────────────────────────────────────────────────
 import 'dotenv/config'
 import { serve } from '@hono/node-server'
-import pino from 'pino'
 import app from './app.js'
 import { initSentry } from './lib/error-tracking.js'
+import { logger } from './lib/logger.js'
 
 const port = parseInt(process.env.PORT ?? '3001')
 
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' })
+/** Max milliseconds to wait for in-flight requests before forced exit */
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 30_000
 
 // Validate required environment variables at startup
 const requiredVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -28,6 +29,36 @@ initSentry().then(() => {
   logger.warn({ err }, 'Error tracking setup skipped')
 })
 
+let shuttingDown = false
+
+async function gracefulShutdown(signal: string) {
+  if (shuttingDown) return
+  shuttingDown = true
+
+  logger.info({ signal }, 'Shutdown signal received — starting graceful shutdown')
+
+  // Force exit if graceful shutdown takes too long
+  const forceExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit')
+    process.exit(1)
+  }, GRACEFUL_SHUTDOWN_TIMEOUT_MS)
+
+  // Stop accepting new connections and drain in-flight requests
+  return new Promise<void>((resolve) => {
+    server.close((err?: Error) => {
+      if (err) {
+        logger.error({ err }, 'Error during HTTP server close')
+      } else {
+        logger.info('HTTP server stopped accepting new connections')
+      }
+
+      clearTimeout(forceExit)
+      logger.info('Graceful shutdown complete')
+      resolve()
+    })
+  })
+}
+
 const server = serve({
   fetch: app.fetch,
   port,
@@ -35,7 +66,14 @@ const server = serve({
   logger.info({ port: info.port }, 'API server started')
 })
 
-process.on('SIGTERM', () => { server.close(); process.exit(0) })
-process.on('SIGINT', () => { server.close(); process.exit(0) })
+process.on('SIGTERM', async () => {
+  await gracefulShutdown('SIGTERM')
+  process.exit(0)
+})
+
+process.on('SIGINT', async () => {
+  await gracefulShutdown('SIGINT')
+  process.exit(0)
+})
 
 export default app
