@@ -65,7 +65,7 @@ import { auditRoutes } from './routes/audit.js'
 import { adminRoutes } from './routes/admin.js'
 import { eventRoutes } from './routes/events.js'
 import { planRoutes } from './routes/plans.js'
-import { portalRoutes } from './routes/portal.js'
+import { portalRoutes } from './routes/portal/index.js'
 import { adminPortalRoutes } from './routes/admin-portal.js'
 import { webhookRoutes } from './routes/webhooks.js'
 import { cronRoutes } from './routes/cron.js'
@@ -76,6 +76,18 @@ import { analyticsRoutes } from './routes/analytics.js'
 import { ssoRoutes } from './routes/sso.js'
 import { billingRoutes } from './routes/billing.js'
 import { alertCheckRoutes } from './routes/alerts.js'
+
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+let openApiSpec: string | null = null
+try {
+  openApiSpec = readFileSync(join(__dirname, '../openapi.yaml'), 'utf-8')
+} catch {
+  // openapi.yaml not found — non-critical
+}
 
 const app = new Hono()
 
@@ -95,6 +107,17 @@ app.get('/health', async (c) => {
     version: APP_VERSION,
     uptime: Math.floor(process.uptime()),
     db: dbOk ? 'connected' : 'unreachable',
+  })
+})
+
+// ── OpenAPI spec ──
+app.get('/openapi.yaml', (c) => {
+  if (!openApiSpec) {
+    return c.json({ error: 'OpenAPI spec not available' }, 404)
+  }
+  return c.body(openApiSpec, 200, {
+    'Content-Type': 'text/yaml',
+    'Content-Disposition': 'inline',
   })
 })
 
