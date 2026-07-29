@@ -63,3 +63,20 @@ export function captureException(
 export function isSentryEnabled(): boolean {
   return sentryEnabled
 }
+
+/**
+ * Flush pending events to Sentry and close the client.
+ * No-op when Sentry is not enabled. Should be called during graceful shutdown
+ * to avoid losing events reported just before the process exits.
+ */
+export async function closeSentry(): Promise<void> {
+  if (!sentryEnabled) return
+
+  try {
+    const Sentry = await import('@sentry/node')
+    await Sentry.close(2_000)
+    logger.info('Sentry client closed')
+  } catch {
+    // silent — best-effort flush
+  }
+}

@@ -110,7 +110,17 @@ registerRoutes.post('/portal/register', zValidator('json', registerSchema), asyn
     })
     dispatchWebhook('tenant.created', tenant.id, { email: body.email, name: body.tenant_name })
 
-    // 7. Sign the user in so they get a session
+    // 7. Send welcome email (fire-and-forget — non-critical)
+    import('../../lib/email.js').then(({ sendWelcomeEmail }) => {
+      sendWelcomeEmail({
+        email: body.email,
+        name: body.tenant_name,
+        tenantName: body.tenant_name,
+        apiKey: rawKey,
+      })
+    })
+
+    // 8. Sign the user in so they get a session
     const sessionResult = await auth.signIn(body.email, body.password)
 
     return c.json({

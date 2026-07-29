@@ -115,6 +115,16 @@ usersRoutes.post('/portal/users/invite', requirePortalSession, requirePortalRole
     details: { invited_email: body.email, role: body.role, invited_by: session.email },
   })
 
+  // Send invite email (fire-and-forget — non-critical)
+  import('../../lib/email.js').then(({ sendInviteEmail }) => {
+    sendInviteEmail({
+      email: body.email,
+      inviterName: session.email ?? 'A team member',
+      tenantName: session.tenant_name ?? 'a TenantScale tenant',
+      portalUrl: process.env.PORTAL_URL ?? 'http://localhost:3003',
+    })
+  })
+
   return c.json({ ...membership, email: body.email }, 201)
 })
 
