@@ -80,6 +80,16 @@ The API starts at **http://localhost:3001**.
 | `GET` | `/v1/status` | Version, uptime, service status |
 | `POST` | `/v1/admin/cron/check-alerts` | Self-hosted alert check |
 
+## 🧩 Versioning
+
+The API uses **URL-based versioning** — all public endpoints live under `/v1`. The
+`/v1` prefix is the API contract version; breaking changes land in a future `/v2`,
+never in `/v1`. Deprecated resources advertise `Deprecation` and `Sunset` headers so
+clients get advance notice before removal.
+
+See [docs/versioning.md](docs/versioning.md) for the full strategy, deprecation policy,
+minimum notice period, and how to introduce `v2`.
+
 ## 🧩 Architecture
 
 ```
