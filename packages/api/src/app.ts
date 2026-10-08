@@ -121,6 +121,47 @@ app.get('/openapi.yaml', (c) => {
   })
 })
 
+// Alias returning the same spec (a valid OpenAPI 3.1 document) for
+// programmatic consumers that expect the default spec path.
+app.get('/openapi', (c) => {
+  if (!openApiSpec) {
+    return c.json({ error: 'OpenAPI spec not available' }, 404)
+  }
+  return c.body(openApiSpec, 200, {
+    'Content-Type': 'application/yaml',
+    'Content-Disposition': 'inline',
+  })
+})
+
+// Swagger UI and tooling consume the canonical spec at /openapi.yaml.
+app.get('/docs', (c) => {
+  const page = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TenantScale API — Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        url: '/openapi.yaml',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        displayRequestDuration: true,
+        presets: [SwaggerUIBundle.presets.apis],
+      })
+    }
+  </script>
+</body>
+</html>`
+  return c.html(page)
+})
+
 // ── Metrics endpoint (BEFORE global rate limiter so monitoring tools are never blocked) ──
 app.get('/metrics', metricsEndpoint)
 
