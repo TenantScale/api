@@ -2,6 +2,28 @@
 # TenantScale API — Multi-stage Docker build
 # ──────────────────────────────────────────────────────
 
+# ── Stage 0: Local development (target: dev) ──
+# Used by `docker compose --profile dev up` for hot-reload development.
+# Source is bind-mounted from the host so `tsx watch` picks up changes.
+FROM node:22-alpine AS dev
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy root workspace files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/api/ packages/api/
+
+# Install ALL dependencies (incl. devDeps for tsx watch)
+RUN pnpm install --frozen-lockfile
+
+WORKDIR /app/packages/api
+
+# tsx watch — restarts on source changes
+CMD ["pnpm", "dev"]
+
 # ── Stage 1: Install all deps + build ──
 FROM node:22-alpine AS builder
 

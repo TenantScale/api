@@ -2,14 +2,11 @@
 # TenantScale API — Docker Compose
 # ──────────────────────────────────────────────────────
 #
-# TWO MODES:
-#
-# 1. API + your Supabase (default)
-#    cp .env.example .env  →  fill in SUPABASE_* vars  →  docker compose up -d
-#
-# 2. API + local PostgreSQL (full self-host)
-#    docker compose --profile full up -d
-#    Requires a local auth solution (GoTrue / custom JWT)
+# PROFILES:
+#   (default)  Production API only
+#              cp .env.example .env  →  fill in SUPABASE_* vars  →  docker compose up -d
+#   --profile dev     API with hot-reload (tsx watch) + supporting db
+#   --profile full    API + local PostgreSQL (full self-host)
 #
 # For production: set a strong CRON_SECRET, restrict CORS_ORIGIN,
 # and configure Stripe / Sentry as needed.
@@ -17,7 +14,7 @@
 name: tenantscale
 
 services:
-  # ── API Server ──────────────────────────────────
+  # ── API Server (production) ────────────────────────
   api:
     image: tenantscale/api:latest
     build:
@@ -47,13 +44,45 @@ services:
       start_period: 15s
     restart: unless-stopped
 
-  # ── PostgreSQL (optional — enable with --profile full) ──
-  # This is a bare Postgres instance WITHOUT Supabase Auth.
-  # To use it, you also need GoTrue (Supabase Auth) or a custom auth solution.
+  # ── Dev API (hot-reloads on source changes — --profile dev) ──
+  # Mirrors local `pnpm dev` inside Docker. The source tree is
+  # bind-mounted so tsx watch restarts on every edit.
+  api-dev:
+    profiles:
+      - dev
+    image: tenantscale/api:dev
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+      target: dev
+    ports:
+      - "3001:3001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:?SUPABASE_URL is required}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}
+      - PORT=3001
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      # Optional
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+    volumes:
+      - ./packages/api/src:/app/packages/api/src
+      - ./packages/api/supabase:/app/packages/api/supabase
+      # .env (if present) is loaded by tsx watch via dotenv
+      - ./.env:/app/.env:ro
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # ── PostgreSQL (optional — enable with --profile full or debug) ──
+  # A bare Postgres instance WITHOUT Supabase Auth. To use it, you also
+  # need GoTrue (Supabase Auth) or a custom auth solution.
   # See docs/self-hosting.md for instructions.
   db:
     profiles:
       - full
+      - dev
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: tenantscale
