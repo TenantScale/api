@@ -1,0 +1,362 @@
+openapi: 3.1.0
+info:
+  title: TenantScale API
+  description: >
+    Multi-tenant management API for B2B SaaS — tenant CRUD, authentication,
+    billing, analytics, webhooks, and admin operations. All public endpoints
+    are versioned under `/v1` (see docs/versioning.md).
+  version: 0.1.0
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://api.tenantscale.com
+    description: Production
+tags:
+  - name: Health
+    description: Service health and status
+  - name: Tenants
+    description: Tenant lifecycle and metadata
+  - name: Portal
+    description: User-session (portal) endpoints
+  - name: Admin
+    description: Cross-tenant admin operations
+  - name: Billing
+    description: Stripe subscriptions and webhooks
+  - name: Status
+    description: Service version and status
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Reports process status and database connectivity.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: 0.1.0
+                  uptime:
+                    type: number
+                  db:
+                    type: string
+                    example: connected
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: Exposes Prometheus-format runtime metrics.
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics in Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+  /openapi.yaml:
+    get:
+      summary: OpenAPI spec (YAML)
+      description: Returns this OpenAPI 3.1 document in YAML form.
+      operationId: getOpenApiYaml
+      responses:
+        '200':
+          description: OpenAPI 3.1 YAML document
+          content:
+            text/yaml:
+              schema:
+                type: string
+  /openapi:
+    get:
+      summary: OpenAPI spec (YAML alias)
+      description: Returns this OpenAPI 3.1 document, for tooling that pins to /openapi.
+      operationId: getOpenApi
+      responses:
+        '200':
+          description: OpenAPI 3.1 YAML document
+          content:
+            text/yaml:
+              schema:
+                type: string
+  /docs:
+    get:
+      summary: Swagger UI
+      description: Interactive Swagger UI documentation page loading /openapi.yaml.
+      operationId: getDocs
+      responses:
+        '200':
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+  /v1/tenants:
+    get:
+      tags: [Tenants]
+      summary: List tenants
+      description: List tenants (admin API key required).
+      operationId: listTenants
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tenant'
+        '401':
+          description: Missing or invalid API key
+    post:
+      tags: [Tenants]
+      summary: Create tenant
+      description: Create a new tenant and return an API key.
+      operationId: createTenant
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                plan_id:
+                  type: string
+                  example: free
+      responses:
+        '201':
+          description: Tenant created with API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
+                  apiKey:
+                    type: string
+        '400':
+          description: Invalid request body
+  /v1/tenants/me:
+    get:
+      tags: [Tenants]
+      summary: Get current tenant
+      description: Returns the tenant associated with the presented API key.
+      operationId: getMe
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '401':
+          description: Missing or invalid API key
+  /v1/tenants/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tenants]
+      summary: Get tenant by ID
+      operationId: getTenant
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '404':
+          description: Tenant not found
+    patch:
+      tags: [Tenants]
+      summary: Update tenant
+      operationId: updateTenant
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+  /v1/portal/me:
+    get:
+      tags: [Portal]
+      summary: Get current portal user + tenant
+      operationId: getPortalMe
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Portal user and tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+  /v1/admin/tenants:
+    get:
+      tags: [Admin]
+      summary: List all tenants
+      operationId: adminListTenants
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tenant'
+  /v1/admin/stats:
+    get:
+      tags: [Admin]
+      summary: Platform stats
+      operationId: adminStats
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Platform statistics
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/admin/plans:
+    get:
+      tags: [Admin]
+      summary: List plans
+      operationId: adminListPlans
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Plan list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+  /v1/subscriptions/checkout:
+    post:
+      tags: [Billing]
+      summary: Create Stripe checkout session
+      operationId: createCheckout
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Checkout session URL
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/status:
+    get:
+      tags: [Status]
+      summary: Service status
+      description: Reports API version, uptime, and service state.
+      operationId: getStatus
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  uptime:
+                    type: number
+                  status:
+                    type: string
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: >
+        Bearer token. Use your tenant API key (created with the tenant) or,
+        for admin endpoints, an admin service key.
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        plan_id:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price_monthly:
+          type: number
+        features:
+          type: object
+        max_users:
+          type: integer
+        sort_order:
+          type: integer
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
