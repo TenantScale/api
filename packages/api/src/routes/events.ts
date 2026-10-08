@@ -9,7 +9,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { supabase } from '../db/supabase.js'
-import { trackEventSchema } from './schemas.js'
+import { trackEventSchema, eventSummaryQuerySchema } from './schemas.js'
 import { requireApiKey } from '../middleware/auth.js'
 import { supabaseError } from '../lib/response.js'
 import { logger } from '../lib/logger.js'
@@ -91,17 +91,17 @@ eventRoutes.post('/events', requireApiKey, zValidator('json', trackEventSchema),
  * - `403` — API key disabled or tenant inactive (from `requireApiKey`)
  * - `5xx` — Supabase error while querying events (via `supabaseError`)
  */
-eventRoutes.get('/events/summary', requireApiKey, async (c) => {
+eventRoutes.get('/events/summary', requireApiKey, zValidator('query', eventSummaryQuerySchema), async (c) => {
   const apiKey = c.get('apiKey')
 
-  const metric = c.req.query('metric')
-  const since = c.req.query('since') ?? new Date(Date.now() - DEFAULT_SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const { metric, since } = c.req.valid('query')
+  const windowStart = since ?? new Date(Date.now() - DEFAULT_SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
   let query = supabase
     .from('usage_events')
     .select('metric, value')
     .eq('tenant_id', apiKey.tenant_id)
-    .gte('created_at', since)
+    .gte('created_at', windowStart)
 
   if (metric) {
     query = query.eq('metric', metric)
@@ -123,5 +123,5 @@ eventRoutes.get('/events/summary', requireApiKey, async (c) => {
     .map(([metric, total]) => ({ metric, total }))
     .sort((a, b) => b.total - a.total)
 
-  return c.json({ summary, since })
+  return c.json({ summary, since: windowStart })
 })
