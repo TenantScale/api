@@ -14,9 +14,16 @@
 //   AUTH_ADAPTER=jwt
 //   AUTH_JWT_SECRET=your-shared-secret
 //   AUTH_JWT_ALGORITHM=HS256 (default)
+//
+// SECURITY: Only HMAC algorithms (HS256/384/512) are supported, and the
+// token's `alg` header must EXACTLY match the configured AUTH_JWT_ALGORITHM.
+// The adapter never treats an unverified token as valid: a token declaring a
+// different alg (including `none`) is always rejected, and asymmetrically
+// signed tokens (RS256/ES256) are not accepted without a proper verifier.
+// ──────────────────────────────────────────────────────
 
 import type { AuthAdapter, SessionUser, UserProfile } from './adapter.js'
-import { createHash, createHmac } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 interface JwtPayload {
   sub?: string
@@ -24,10 +31,23 @@ interface JwtPayload {
   [key: string]: unknown
 }
 
+/** Map an HS algorithm name to its Node hash. Returns null for anything else. */
+function hmacHashFor(algorithm: string): 'sha256' | 'sha384' | 'sha512' | null {
+  switch (algorithm) {
+    case 'HS256': return 'sha256'
+    case 'HS384': return 'sha384'
+    case 'HS512': return 'sha512'
+    default: return null
+  }
+}
+
 /**
- * Minimal JWT decoder — no external dependency.
- * Verifies HS256/HS384/HS512 signatures. For RS256/ES256,
- * just decodes the payload without verification.
+ * Decode and verify a JWT.
+ *
+ * Verification is driven ONLY by the configured AUTH_JWT_ALGORITHM — never by
+ * the (attacker-controlled) token header. The token must declare exactly the
+ * configured algorithm and its signature is always checked with a
+ * constant-time comparison. Anything else fails closed (returns null).
  */
 function decodeAndVerify(token: string): JwtPayload | null {
   try {
@@ -48,19 +68,24 @@ function decodeAndVerify(token: string): JwtPayload | null {
       throw new Error('AUTH_JWT_SECRET is required when using jwt auth adapter')
     }
 
-    const algorithm = process.env.AUTH_JWT_ALGORITHM ?? 'HS256'
+    const configuredAlg = (process.env.AUTH_JWT_ALGORITHM ?? 'HS256').toUpperCase()
 
-    // For non-HMAC algorithms, just decode without verification
-    if (header.alg && !header.alg.startsWith('HS')) {
-      return JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'))
+    // Only HMAC is supported. If a non-HMAC algorithm is configured there is no
+    // secret-based verification available, so fail closed instead of accepting
+    // unverified asymmetric tokens.
+    const hashAlgo = hmacHashFor(configuredAlg)
+    if (!hashAlgo) {
+      throw new Error(
+        `AUTH_JWT_ALGORITHM=${configuredAlg} is not supported. Only HS256, HS384 and HS512 are supported.`,
+      )
     }
 
-    let hashAlgo: string
-    switch (algorithm) {
-      case 'HS256': hashAlgo = 'sha256'; break
-      case 'HS384': hashAlgo = 'sha384'; break
-      case 'HS512': hashAlgo = 'sha512'; break
-      default: return null
+    // The token MUST declare exactly the configured algorithm. This blocks
+    // `alg: none` and algorithm-confusion downgrades (e.g. RS256 signed with an
+    // HMAC secret).
+    const tokenAlg = header.alg?.toUpperCase()
+    if (tokenAlg !== configuredAlg) {
+      return null
     }
 
     const expectedSig = createHmac(hashAlgo, secret)
@@ -69,18 +94,22 @@ function decodeAndVerify(token: string): JwtPayload | null {
 
     const actualSig = Buffer.from(signatureB64, 'base64url')
 
-    // Constant-time comparison
-    const expectedHash = createHash(hashAlgo).update(expectedSig).digest()
-    const actualHash = createHash(hashAlgo).update(actualSig).digest()
-    if (!expectedHash.equals(actualHash)) return null
+    // Constant-time comparison; guard the length so mismatched-length inputs
+    // can't leak anything and can't pass.
+    if (expectedSig.length !== actualSig.length || !timingSafeEqual(expectedSig, actualSig)) {
+      return null
+    }
 
     // Decode and validate payload
     const payload: JwtPayload = JSON.parse(
       Buffer.from(payloadB64, 'base64url').toString('utf-8'),
     )
 
-    if (payload.exp && Date.now() / 1000 > (payload.exp as number)) return null
-    if (payload.nbf && Date.now() / 1000 < (payload.nbf as number)) return null
+    // A session token must carry a subject.
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return null
+    // Reject expired tokens, and treat malformed/missing exp or nbf as invalid.
+    if (typeof payload.exp === 'number' && Date.now() / 1000 >= payload.exp) return null
+    if (typeof payload.nbf === 'number' && Date.now() / 1000 < payload.nbf) return null
 
     return payload
   } catch {
