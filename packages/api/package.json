@@ -21,7 +21,7 @@
     "hono": "^4.13.13",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
-    "stripe": "^22.3.2",
+    "stripe": "^23.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
