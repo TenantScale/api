@@ -172,6 +172,18 @@ export const trackEventSchema = z.object({
   properties: z.record(z.string(), z.unknown()).default({}),
 })
 
+/**
+ * Query params for `GET /events/summary`.
+ * - `metric` (optional string, max 100 chars) — filter to a single metric
+ * - `since` (optional ISO 8601 datetime string) — start of the window
+ */
+export const eventSummaryQuerySchema = z.object({
+  metric: z.string().min(1).max(100).optional(),
+  since: z.iso.datetime({ offset: true }).optional(),
+})
+
+export type EventSummaryQuery = z.infer<typeof eventSummaryQuerySchema>
+
 // ════════════════════════════════════════════════════════════════
 // Portal API Key
 // ════════════════════════════════════════════════════════════════

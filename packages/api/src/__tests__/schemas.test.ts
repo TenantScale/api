@@ -18,6 +18,7 @@ import {
   portalTenantCreateSchema,
   trackEventSchema,
   createPortalApiKeySchema,
+  eventSummaryQuerySchema,
   ssrfUrlCheck,
 } from '../routes/schemas.js'
 
@@ -1346,5 +1347,89 @@ describe('createPortalApiKeySchema', () => {
   it('produces readable error for missing label', () => {
     try { createPortalApiKeySchema.parse({ scopes: ['read'] }) }
     catch (e) { assertParseError(e, 'label') }
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// eventSummaryQuerySchema
+// ════════════════════════════════════════════════════════════════
+
+describe('eventSummaryQuerySchema', () => {
+  // ── Happy Path ──
+  it('parses empty query (both params optional)', () => {
+    const result = eventSummaryQuerySchema.parse({})
+    expect(result.metric).toBeUndefined()
+    expect(result.since).toBeUndefined()
+  })
+
+  it('parses metric only', () => {
+    const result = eventSummaryQuerySchema.parse({ metric: 'api.call' })
+    expect(result.metric).toBe('api.call')
+  })
+
+  it('parses since as UTC ISO datetime (Z)', () => {
+    const since = '2024-01-01T00:00:00Z'
+    const result = eventSummaryQuerySchema.parse({ since })
+    expect(result.since).toBe(since)
+  })
+
+  it('parses since with numeric offset', () => {
+    const since = '2024-01-01T00:00:00+05:30'
+    const result = eventSummaryQuerySchema.parse({ since })
+    expect(result.since).toBe(since)
+  })
+
+  it('parses both metric and since', () => {
+    const result = eventSummaryQuerySchema.parse({
+      metric: 'user.signup',
+      since: '2024-01-01T00:00:00Z',
+    })
+    expect(result.metric).toBe('user.signup')
+    expect(result.since).toBe('2024-01-01T00:00:00Z')
+  })
+
+  it('accepts metric at max length (100)', () => {
+    const result = eventSummaryQuerySchema.parse({ metric: 'a'.repeat(100) })
+    expect(result.metric).toBe('a'.repeat(100))
+  })
+
+  // ── Unhappy Path ──
+  it('rejects empty metric', () => {
+    expect(() => eventSummaryQuerySchema.parse({ metric: '' })).toThrow()
+  })
+
+  it('rejects metric exceeding 100 chars', () => {
+    expect(() => eventSummaryQuerySchema.parse({ metric: 'a'.repeat(101) })).toThrow()
+  })
+
+  it('rejects metric as number', () => {
+    expect(() => eventSummaryQuerySchema.parse({ metric: 123 })).toThrow()
+  })
+
+  it('rejects since that is not an ISO datetime', () => {
+    expect(() => eventSummaryQuerySchema.parse({ since: 'not-a-date' })).toThrow()
+  })
+
+  it('rejects date without time component', () => {
+    expect(() => eventSummaryQuerySchema.parse({ since: '2024-01-01' })).toThrow()
+  })
+
+  it('rejects since as number', () => {
+    expect(() => eventSummaryQuerySchema.parse({ since: 1700000000000 })).toThrow()
+  })
+
+  it('strips unknown query parameter', () => {
+    const result = eventSummaryQuerySchema.parse({ metric: 'x', foo: 'bar' })
+    expect(result.metric).toBe('x')
+    expect((result as Record<string, unknown>).foo).toBeUndefined()
+  })
+
+  // ── Error Handling ──
+  it('produces readable error for invalid since', () => {
+    try {
+      eventSummaryQuerySchema.parse({ since: 'bad' })
+    } catch (e) {
+      assertParseError(e, 'since')
+    }
   })
 })
